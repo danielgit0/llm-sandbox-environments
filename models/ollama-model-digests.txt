@@ -1,0 +1,6 @@
+# Base model -> registry manifest SHA-256, verified after `ollama pull`.
+# Add a line when pinning another size; unpinned sizes skip verification.
+qwen2.5-coder:0.5b 4ff64a7f502a08b7616edb8ca0a79eb1853fc363d842b7df4b46915d11a3fb09
+qwen2.5-coder:1.5b d7372fd828518a4d38b1eb196c673c31a85f2ed302b3d1e406c4c2d1b64a0668
+qwen2.5-coder:3b f72c60cabf6237b07f6e632b2c48d533cef25eda2efbd34bed21c5e9c01e6225
+qwen2.5-coder:7b dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364

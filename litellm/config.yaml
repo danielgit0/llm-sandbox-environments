@@ -4,7 +4,7 @@
 model_list:
   - model_name: qwen-coder
     litellm_params:
-      model: ollama_chat/qwen-coder-7b
+      model: ollama_chat/qwen-coder-local
       api_base: http://127.0.0.1:11434
 
   # More local models: create the tag in Ollama with num_ctx first.
