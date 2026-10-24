@@ -35,11 +35,13 @@ letters, digits, and hyphens (`codebase-memory-mcp`, not `CodebaseMemoryMCP`).
    The `default` is the pin; it is the only place the version is written. If
    the descriptor needs the version itself (for example in a `provides` entry),
    reference it as `${{ kit.args.version }}`.
-3. In `kit.Dockerfile`, declare `ARG MCP_VERSION` and install the binary at a
-   stable path such as `/usr/local/bin/<name>`. Prefer a multi-stage build that
-   ends at `FROM scratch` so the mixin adds only the binary, not a package
-   manager or download tools. Verify downloaded archives against upstream
-   checksums and run the binary's `--version` as a build-time smoke test.
+3. In `kit.Dockerfile`, pin the build base image by digest, declare
+   `ARG MCP_VERSION`, and install the binary at a stable path such as
+   `/usr/local/bin/<name>`. Prefer a multi-stage build that ends at
+   `FROM scratch` so the mixin adds only the binary, not a package manager or
+   download tools. Verify every download against a hash committed in the
+   Dockerfile (not a checksums file fetched at build time), and run the
+   binary's `--version` as a build-time smoke test.
 4. Write `context.md`: a short note telling the agent when to use the server
    and to verify its output. Start it with a `## <name>` heading so fragments
    stay grouped when appended to the workload's `AGENTS.md`, and do not repeat
@@ -50,7 +52,7 @@ letters, digits, and hyphens (`codebase-memory-mcp`, not `CodebaseMemoryMCP`).
 
    ```yaml
    kits:
-     - docker.io/docker/sbx-kit-opencode:1.18.31
+     - docker.io/docker/sbx-kit-opencode:1.18.33@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
      - ./mcps/codebase-memory-mcp
      - ./mcps/<name>
    ```
@@ -58,11 +60,13 @@ letters, digits, and hyphens (`codebase-memory-mcp`, not `CodebaseMemoryMCP`).
 6. Register the command in `workspace/opencode.json`:
 
    ```json
-   "<name>": {
-     "type": "local",
-     "command": ["/usr/local/bin/<name>"],
-     "enabled": true,
-     "timeout": 30000
+   {
+       "<name>": {
+           "type": "local",
+           "command": ["/usr/local/bin/<name>"],
+           "enabled": true,
+           "timeout": 30000
+       }
    }
    ```
 
@@ -78,6 +82,7 @@ docker buildx build --platform linux/amd64 \
   -f mcps/<name>/kit.Dockerfile \
   --build-arg MCP_VERSION=<version> \
   -t local/<name>:<version> mcps/<name>
+scripts/audit.sh                   # pins, secrets, and vulnerabilities
 ```
 
 Use `--platform linux/arm64` on ARM64. The plan is authoritative for how
@@ -92,10 +97,11 @@ does not rebuild it.
 
 - **Pinned versions only.** Never track `latest`. The version lives in
   `kit.yaml`; the Dockerfile takes it as a build argument.
-- **Checksums.** Verify every downloaded archive against the upstream
-  `checksums.txt` (or equivalent) and fail the build on mismatch.
+- **Pinned base and hashes.** Pin the build base image by digest and verify
+  every downloaded archive against a SHA-256 committed in the Dockerfile. Do
+  not trust a checksums file fetched during the build.
 - **One server per directory.** Do not bundle several tools in one mixin; a
-  separate directory keeps pins, checksums, and agent instructions independent.
+  separate directory keeps pins, hashes, and agent instructions independent.
 - **Binary path is part of the contract.** `workspace/opencode.json` and
   `context.md` refer to it, so pick a stable absolute path.
 - **Do not register these servers through `sbx mcp` / `mcp.servers`.** The
