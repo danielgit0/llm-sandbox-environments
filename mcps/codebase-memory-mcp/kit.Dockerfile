@@ -6,7 +6,11 @@
 # so the `--version` smoke test proves the binary's glibc/libstdc++ needs (glibc >= 2.38)
 # are met at runtime. Stage 2 is `scratch`, so nothing else (apt state, /root dotfiles,
 # the upstream updater script) leaks into the composed image.
-ARG BASE_IMAGE=docker/sandbox-templates:shell-docker
+#
+# Supply-chain pins: the base image is pinned by digest and the release archives are
+# verified against hashes committed here (not against a checksums file downloaded at
+# build time). Bump both together with args.version in kit.yaml.
+ARG BASE_IMAGE=docker/sandbox-templates:shell-docker@sha256:b178ca62ec2e79af2a044e3ec321bdb72188690e1c15d573ea5524b397554d3d
 
 FROM ${BASE_IMAGE} AS build
 # Fail the build when any stage of a pipeline fails, not just the last command.
@@ -24,12 +28,19 @@ ARG MCP_VERSION
 WORKDIR /tmp/mcp
 
 # apt installs build-time download tools only. Pinning their versions would break
-# whenever the moving base template updates its package set; the binary itself is
-# pinned and checksum-verified.
+# whenever the pinned base image updates its package set; the binary itself is
+# version-pinned and hash-pinned below.
 # hadolint ignore=DL3008
 RUN set -eux; \
     case "${TARGETARCH}" in \
-      amd64|arm64) MCP_ARCH="${TARGETARCH}" ;; \
+      amd64) \
+        MCP_ARCH=amd64; \
+        MCP_SHA256=8453015145f072c1b9b019cbdd02cea8cc6f18cc5e116036dd20992631c638c7; \
+        ;; \
+      arm64) \
+        MCP_ARCH=arm64; \
+        MCP_SHA256=8575f126092660b93b170bdc2e06f3ef2dd28d3cc49ad6d0895dc3e4767219cd; \
+        ;; \
       *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
     apt-get update; \
@@ -39,9 +50,7 @@ RUN set -eux; \
     ARCHIVE="codebase-memory-mcp-linux-${MCP_ARCH}.tar.gz"; \
     BASE_URL="https://github.com/DeusData/codebase-memory-mcp/releases/download/v${MCP_VERSION}"; \
     curl --fail --show-error --location --retry 3 "${BASE_URL}/${ARCHIVE}" -o "${ARCHIVE}"; \
-    curl --fail --show-error --location --retry 3 "${BASE_URL}/checksums.txt" -o checksums.txt; \
-    test "$(awk -v f="${ARCHIVE}" '$2 == f' checksums.txt | wc -l)" -eq 1; \
-    awk -v f="${ARCHIVE}" '$2 == f' checksums.txt | sha256sum --check --strict -; \
+    echo "${MCP_SHA256}  ${ARCHIVE}" | sha256sum --check --strict -; \
     tar -xzf "${ARCHIVE}" codebase-memory-mcp; \
     install -m 0755 codebase-memory-mcp /out/usr/local/bin/codebase-memory-mcp; \
     /out/usr/local/bin/codebase-memory-mcp --version
