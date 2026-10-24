@@ -9,7 +9,7 @@ workspace: ./workspace
 # Add a new server by copying mcps/codebase-memory-mcp/ and appending its directory
 # here and its command to workspace/opencode.json.
 kits:
-  - docker.io/docker/sbx-kit-opencode:1.18.31
+  - docker.io/docker/sbx-kit-opencode:1.19.4
   - ./mcps/codebase-memory-mcp
 
 sandboxOptions:
