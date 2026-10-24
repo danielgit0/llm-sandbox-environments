@@ -24,6 +24,23 @@ repos:
         args:
           - --fix=lf
       - id: check-symlinks
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+
+  # Shell script linting.
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+
+  # YAML style and duplicate-key checks (check-yaml covers syntax only).
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args:
+          - -c
+          - .yamllint.yaml
 
   # Markdown formatting and consistency.
   - repo: https://github.com/DavidAnson/markdownlint-cli2
@@ -33,14 +50,51 @@ repos:
         args:
           - --fix
 
-  # Dockerfile static analysis.
+  # Spelling in docs, comments, and configuration.
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.3
+    hooks:
+      - id: codespell
+        args:
+          - --ignore-words-list=sbx,litellm,ollama,qwen,modelfile,trivy,hadolint,mcp,uv
+        exclude: ^litellm/uv\.lock$
+
+  # Local checks that depend on host tooling.
   - repo: local
     hooks:
+      # Dockerfile static analysis, pinned by digest.
       - id: hadolint
         name: Lint Dockerfiles with Hadolint
         language: docker_image
-        entry: --entrypoint hadolint docker.io/hadolint/hadolint:v2.14.0
+        entry: --entrypoint hadolint docker.io/hadolint/hadolint:v2.14.0@sha256:27086352fd5e1907ea2b934eb1023f217c5ae087992eb59fde121dce9c9ff21e
         files: '(^|/)(Dockerfile|[^/]*\.Dockerfile)$'
+
+      # OpenCode config is JSONC; check-json cannot parse the comments.
+      - id: jsonc-check
+        name: Validate JSONC files
+        language: system
+        entry: python3 scripts/check-jsonc.py
+        files: \.jsonc$
+
+      # The uv project requires uv 0.13.5 (enforced by required-version).
+      - id: uv-lock-check
+        name: Check uv.lock is current
+        language: system
+        entry: bash -c 'cd litellm && ../scripts/uv lock --check'
+        files: ^litellm/(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+
+      # Vulnerability/image audit is slow, networked, and currently fails on
+      # the upstream OpenCode image. Run it explicitly before pin updates:
+      #   pre-commit run --hook-stage manual trivy-audit
+      - id: trivy-audit
+        name: Trivy audit (manual)
+        language: system
+        entry: scripts/audit.sh
+        pass_filenames: false
+        always_run: true
+        stages:
+          - manual
 
   # Detect accidentally committed credentials and secrets.
   - repo: https://github.com/gitleaks/gitleaks

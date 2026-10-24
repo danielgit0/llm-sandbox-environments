@@ -6,3 +6,12 @@ config:
     code_blocks: false
     # Allow long prose lines; Markdown renders them as paragraphs.
     stern: false
+
+ignores:
+  - ".npm-cache/**"
+  - ".trivy-cache/**"
+  - ".uv-cache/**"
+  - "litellm/.venv/**"
+  - ".uv-python/**"
+  - ".tools/**"
+  - ".pre-commit-cache/**"
