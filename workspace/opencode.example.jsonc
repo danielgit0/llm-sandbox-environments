@@ -1,0 +1,66 @@
+// Reference only: OpenCode loads workspace/opencode.json.
+// Copy a snippet into that file and adjust the punctuation.
+//
+// Every model below is a LiteLLM alias: its name must match model_name in
+// litellm/config.yaml. The sandbox has no other model egress path.
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "litellm/qwen-coder",
+  "provider": {
+    "litellm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LiteLLM",
+      "options": {
+        "baseURL": "{env:LITELLM_BASE_URL}"
+      },
+      "models": {
+        "qwen-coder": {
+          "name": "Qwen2.5 Coder 7B (local)",
+          "limit": { "context": 32768, "output": 8192 }
+        }
+      }
+    }
+  },
+  "mcp": {
+    "codebase-memory-mcp": {
+      "type": "local",
+      "command": ["/usr/local/bin/codebase-memory-mcp"],
+      "enabled": true,
+      "timeout": 30000
+    }
+  }
+}
+
+// --- Another local model ---------------------------------------------------
+// 1. Create the tag in Ollama with num_ctx, then add it to litellm/config.yaml:
+//
+//    - model_name: qwen-coder-14b
+//      litellm_params:
+//        model: ollama_chat/qwen-coder-14b
+//        api_base: http://127.0.0.1:11434
+//
+// 2. Add the alias under provider.litellm.models:
+//
+//    "qwen-coder-14b": {
+//      "name": "Qwen2.5 Coder 14B (local)",
+//      "limit": { "context": 32768, "output": 8192 }
+//    }
+//
+// 3. Select it with /models. No sandbox recreation is needed.
+
+// --- Hosted provider through LiteLLM ---------------------------------------
+// Add the deployment to litellm/config.yaml; the key stays on the host:
+//
+//    - model_name: deepseek
+//      litellm_params:
+//        model: deepseek/deepseek-v4-pro
+//        api_key: os.environ/DEEPSEEK_API_KEY
+//
+// Then add the alias:
+//
+//    "deepseek": {
+//      "name": "DeepSeek (hosted)",
+//      "limit": { "context": 1048576, "output": 393216 }
+//    }
+//
+// The sandbox still only reaches LiteLLM; no new egress rule is required.

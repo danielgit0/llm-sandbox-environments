@@ -1,5 +1,24 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "model": "litellm/qwen-coder",
+  "provider": {
+    "litellm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LiteLLM",
+      "options": {
+        "baseURL": "{env:LITELLM_BASE_URL}"
+      },
+      "models": {
+        "qwen-coder": {
+          "name": "Qwen2.5 Coder 7B (local)",
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
+        }
+      }
+    }
+  },
   "mcp": {
     "codebase-memory-mcp": {
       "type": "local",

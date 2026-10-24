@@ -5,12 +5,14 @@ name: opencode-with-mcps
 agent: sbx-kit-opencode
 workspace: ./workspace
 
-# One local kit per MCP server, each a self-contained directory under ./mcps/.
-# Add a new server by copying mcps/codebase-memory-mcp/ and appending its directory
-# here and its command to workspace/opencode.json.
 kits:
-  - docker.io/docker/sbx-kit-opencode:1.19.4
+  # Latest published kit. Pinned by tag + manifest digest; 1.19.4 is not
+  # published on docker.io, so sbx env run would fail on it.
+  - docker.io/docker/sbx-kit-opencode:1.18.33@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
   - ./mcps/codebase-memory-mcp
+  # Single model egress path. The sandbox cannot reach Ollama or providers
+  # directly; LiteLLM runs on the host and is the only allowed destination.
+  - ./providers/litellm
 
 sandboxOptions:
   cpus: 4
@@ -28,3 +30,7 @@ ports:
 
 env:
   LANG: C.UTF-8
+  # The proxy rewrites host.docker.internal to localhost, so the egress rule
+  # names the local LiteLLM port, not the sandbox-facing hostname.
+  LITELLM_EGRESS: localhost:4000
+  LITELLM_BASE_URL: http://host.docker.internal:4000/v1

@@ -1,0 +1,16 @@
+# syntax=docker/sandbox-kit:3
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/sandbox-kit-spec/main/schema/kit.schema.json
+schemaVersion: "3"
+kind: mixin
+version: "1.0.0"
+displayName: LiteLLM gateway
+description: Allows the sandbox to reach the LiteLLM gateway on the host.
+capabilities:
+  # This is the only model egress path: the sandbox cannot reach Ollama or
+  # hosted providers directly. LITELLM_EGRESS is set in sbxenv.yaml and names
+  # localhost:<port> because the proxy rewrites host.docker.internal.
+  - type: com.docker.sandbox/network-policy@1
+    config:
+      runtime:
+        allow:
+          - "${{ kit.env.LITELLM_EGRESS }}"
