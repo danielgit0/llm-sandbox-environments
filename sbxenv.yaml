@@ -30,7 +30,6 @@ ports:
 
 env:
   LANG: C.UTF-8
-  # The proxy rewrites host.docker.internal to localhost, so the egress rule
-  # names the local LiteLLM port, not the sandbox-facing hostname.
-  LITELLM_EGRESS: localhost:4000
+  # Sandbox-side model URL. The egress host:port is literal in
+  # providers/litellm/kit.yaml; keep the port in sync there and in run.sh.
   LITELLM_BASE_URL: http://host.docker.internal:4000/v1
