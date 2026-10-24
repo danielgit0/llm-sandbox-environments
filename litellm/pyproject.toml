@@ -1,0 +1,19 @@
+[project]
+name = "opencode-litellm"
+version = "0.0.0"
+description = "Pinned LiteLLM gateway for the OpenCode sandbox"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "litellm[proxy]==1.106.3",
+]
+
+[tool.uv]
+package = false
+# Enforce the tested uv version; a different uv refuses to operate.
+required-version = "==0.13.5"
+
+# No user-level index overrides or extra indexes.
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true

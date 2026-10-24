@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Run the pinned uv from .tools/ with repository-local caches.
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+bin="$root/.tools/uv-0.13.5/uv"
+
+if [ ! -x "$bin" ]; then
+  echo "pinned uv 0.13.5 is not installed" >&2
+  echo "run: scripts/install-uv.sh" >&2
+  exit 1
+fi
+
+export UV_CACHE_DIR="${UV_CACHE_DIR:-$root/.uv-cache}"
+export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-$root/.uv-python}"
+
+exec "$bin" "$@"

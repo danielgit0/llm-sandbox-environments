@@ -13,6 +13,16 @@ secrets/
 opencode.local.json
 opencode.local.jsonc
 
+# ── Generated environments and caches ───────────────────
+litellm/.venv/
+.uv-cache/
+.uv-python/
+.tools/
+.trivy-cache/
+.npm-cache/
+.pre-commit-cache/
+.go-cache/
+
 # ── MCP dependencies and generated data ─────────────────
 node_modules/
 **/node_modules/

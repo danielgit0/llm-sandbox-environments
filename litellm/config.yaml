@@ -1,0 +1,34 @@
+# Active model gateway. Start it from the repository root with:
+#   litellm/run.sh
+# It binds 127.0.0.1:4000; the sandbox reaches it through the proxy.
+model_list:
+  - model_name: qwen-coder
+    litellm_params:
+      model: ollama_chat/qwen-coder-7b
+      api_base: http://127.0.0.1:11434
+
+  # More local models: create the tag in Ollama with num_ctx first.
+  # - model_name: qwen-coder-14b
+  #   litellm_params:
+  #     model: ollama_chat/qwen-coder-14b
+  #     api_base: http://127.0.0.1:11434
+
+  # Hosted provider held by LiteLLM on the host. The key stays in the host
+  # environment and never reaches the sandbox.
+  # - model_name: deepseek
+  #   litellm_params:
+  #     model: deepseek/deepseek-v4-pro
+  #     api_key: os.environ/DEEPSEEK_API_KEY
+
+  # Any other OpenAI-compatible provider:
+  # - model_name: openrouter-deepseek
+  #   litellm_params:
+  #     model: openrouter/deepseek/deepseek-chat
+  #     api_key: os.environ/OPENROUTER_API_KEY
+
+# Failover, once more than one model is active:
+# litellm_settings:
+#   fallbacks:
+#     - qwen-coder: ["qwen-coder-14b", "deepseek"]
+#   context_window_fallbacks:
+#     - qwen-coder: ["deepseek"]
