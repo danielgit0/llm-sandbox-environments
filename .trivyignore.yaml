@@ -1,0 +1,22 @@
+# Scoped, time-limited exceptions. Every entry needs a statement and an
+# expiry; see SECURITY.md for the rationale.
+misconfigurations:
+  - id: AVD-DS-0002
+    paths:
+      - mcps/codebase-memory-mcp/kit.Dockerfile
+    statement: >-
+      The root user exists only in the build stage; the published mixin is
+      scratch and adds no user.
+    expired_at: "2027-10-24T00:00:00Z"
+
+vulnerabilities:
+  - id: CVE-2026-112940
+    paths:
+      - litellm/uv.lock
+    statement: >-
+      filelock 3.32.7 is affected only through ReadWriteLock. LiteLLM and
+      huggingface-hub use FileLock, and this local Ollama path does not use
+      ReadWriteLock. LiteLLM 1.106.3 requires filelock <4.0, so the fixed
+      4.2.1 cannot be installed without overriding an upstream constraint.
+      Re-check when LiteLLM relaxes that pin.
+    expired_at: "2027-01-24T00:00:00Z"
