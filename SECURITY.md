@@ -31,8 +31,8 @@ vulnerabilities. `scripts/audit.sh` is the gate that checks that.
     `1e8ad2d2a394efdd235bee74deec237badd95142ffba77588140ab2a9ecec227`
   - `ollama-linux-arm64.tar.zst`:
     `57dca26f51efc050112b733a65dea6f6c8e68da7a2946afd7c1eb8834d9eeb92`
-- qwen2.5-coder:7b manifest:
-  `dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364`
+- qwen2.5-coder base models: digests pinned in `models/ollama-model-digests.txt`
+  (0.5b test, 1.5b, 3b, 7b)
 - hadolint (dev): `docker.io/hadolint/hadolint:v2.14.0@sha256:27086352fd5e1907ea2b934eb1023f217c5ae087992eb59fde121dce9c9ff21e`
 - Tested sandbox CLI: `sbx 0.48.0`
 
@@ -81,9 +81,14 @@ that finding is recorded above and in the README Known issue.
 
 ## Accepted risks
 
-- **LiteLLM has no master key and binds 127.0.0.1.** Only host processes and the
-  sandbox proxy can reach it. If the host is shared, set
-  `general_settings.master_key` and give the sandbox a key.
+- **LiteLLM runs without a master key and binds 127.0.0.1.** LiteLLM 1.106.3
+  refuses to start unauthenticated unless
+  `LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true`; `run.sh` sets it
+  deliberately. Only host processes and the sandbox proxy can reach the
+  gateway. On a shared host, set `LITELLM_MASTER_KEY` and give the sandbox the
+  key instead.
+- **Host secrets live in `litellm/.env` or the invoking environment.** `.env`
+  is gitignored and loaded by `run.sh`; it is never mounted into the sandbox.
 - **filelock CVE-2026-112940 (HIGH, fixed in 4.2.1).** LiteLLM 1.106.3
   requires `filelock<4.0`, so the fixed release cannot be installed without
   overriding an upstream constraint. The vulnerable `ReadWriteLock` path is
@@ -93,9 +98,12 @@ that finding is recorded above and in the README Known issue.
 - **Ollama binds 127.0.0.1 and is not reachable from the sandbox.** The only
   sandbox egress entry is `localhost:4000` (LiteLLM). Ollama's model-management
   API is therefore host-local, not sandbox-visible.
-- **Model verification is post-pull.** `scripts/verify-ollama-model.sh` checks
-  the local manifest hash against the pin; if Ollama re-tags the model, the
-  script fails closed.
+- **Model verification is post-pull.** `scripts/verify-ollama-model.sh <base>`
+  reads the registry manifest digest recorded in the local manifest (Ollama
+  appends it as a layer) and compares it with
+  `models/ollama-model-digests.txt`; a tag without a pin is skipped with a
+  warning, so experimental sizes remain usable.
+  If Ollama re-tags a pinned model, the script fails closed.
 - **The host OS, Docker, `sbx`, and Trivy are outside the lock.** Keep them
   patched and record the tested `sbx` version.
 - **Dev tooling is rev-pinned, not hash-locked.** Pre-commit hooks pin their

@@ -10,6 +10,62 @@ All runtime components are pinned by version plus digest or hash. See
 upstream OpenCode workload image currently has an open finding; see
 [Known issue](#known-issue-opencode-workload-image).
 
+## Architecture
+
+OpenCode runs inside the sandbox. LiteLLM and Ollama run on the host. The
+sandbox has one model egress path: the host-side LiteLLM gateway.
+
+```mermaid
+flowchart LR
+    subgraph Host["Host"]
+        direction TB
+        Ollama["Ollama 0.40.10<br/>qwen-coder-local<br/>127.0.0.1:11434"]
+        LiteLLM["LiteLLM 1.106.3<br/>127.0.0.1:4000"]
+        Secrets["litellm/.env<br/>optional host secrets"]
+        Providers["Hosted providers<br/>optional"]
+        LiteLLM -->|"ollama_chat"| Ollama
+        LiteLLM -.->|"HTTPS"| Providers
+        Secrets -.-> LiteLLM
+    end
+
+    subgraph Sandbox["Docker Sandbox"]
+        direction TB
+        OpenCode["OpenCode 1.18.33"]
+        Config["workspace/opencode.json<br/>LiteLLM provider + MCP"]
+        MCP["codebase-memory-mcp 0.12.1<br/>local stdio"]
+        Workspace["Mounted workspace/"]
+        OpenCode --> Config
+        OpenCode --> MCP
+        Config --> Workspace
+    end
+
+    OpenCode -->|"only egress: localhost:4000"| LiteLLM
+```
+
+The three layers are:
+
+1. **Sandbox**: OpenCode and the MCP server. The agent can write the mounted
+   `workspace/` only.
+2. **Host gateway**: LiteLLM accepts OpenAI-compatible requests on loopback
+   and holds any provider credentials. It is the only model egress.
+3. **Host model backend**: Ollama serves `qwen-coder-local`; hosted providers
+   are optional and reached only by LiteLLM.
+
+The sandbox-facing name `host.docker.internal` is rewritten to `localhost` by
+the sandbox proxy, which is why the egress rule names `localhost:4000`.
+
+### Model routing
+
+```mermaid
+flowchart LR
+    Base["qwen2.5-coder:0.5b / 1.5b / 3b / 7b"] -->|"scripts/setup-ollama-model.sh"| Local["Ollama tag<br/>qwen-coder-local"]
+    Local -->|"litellm/config.yaml"| Alias["LiteLLM model_name<br/>qwen-coder"]
+    Alias -->|"workspace/opencode.json"| Selected["OpenCode model<br/>litellm/qwen-coder"]
+```
+
+The OpenCode label is cosmetic; the actual base is whichever
+`qwen-coder-local` points to. Run `ollama ps` to see the loaded model.
+
 ## Layout
 
 ```text
@@ -25,7 +81,8 @@ upstream OpenCode workload image currently has an open finding; see
 │   ├── uv.lock                 # universal, hash-locked
 │   └── run.sh                  # uv sync --frozen + uv run on 127.0.0.1
 ├── models/
-│   └── qwen-coder-7b.Modelfile # 32k context + low temperature overlay
+│   ├── ollama-model-digests.txt # base model -> manifest SHA-256
+│   └── qwen-coder-7b.Modelfile  # 32k context + low temperature overlay
 ├── mcps/                       # one self-contained mixin per MCP server
 │   ├── README.md               # conventions and add-a-server checklist
 │   └── codebase-memory-mcp/
@@ -39,6 +96,7 @@ upstream OpenCode workload image currently has an open finding; see
 │   ├── audit.sh                # trivy vulnerability gate
 │   ├── check-jsonc.py          # JSONC validator for opencode.example.jsonc
 │   ├── install-uv.sh           # verifies + installs pinned uv 0.13.5
+│   ├── setup-ollama-model.sh   # pull base + create qwen-coder-local
 │   ├── uv                      # wrapper for the pinned uv
 │   └── verify-ollama-model.sh  # model manifest digest check
 └── workspace/
@@ -125,8 +183,8 @@ rejects a field.
 - Python: 3.12.15 (`litellm/.python-version`)
 - uv: 0.13.5, installed by `scripts/install-uv.sh` (checksum-verified)
 - Ollama: 0.40.10
-- qwen2.5-coder:7b manifest:
-  `dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364`
+- qwen2.5-coder digests: pinned in `models/ollama-model-digests.txt`
+  (0.5b, 1.5b, 3b, 7b)
 
 `SECURITY.md` lists the full digests and the audit procedure.
 
@@ -137,9 +195,9 @@ against the checksums in [SECURITY.md](SECURITY.md).
 
 ```bash
 ollama --version                    # must print 0.40.10
-ollama pull qwen2.5-coder:7b
-scripts/verify-ollama-model.sh
-ollama create qwen-coder-7b -f models/qwen-coder-7b.Modelfile
+scripts/setup-ollama-model.sh       # 7B default, uses the committed Modelfile
+# quick test model:
+# scripts/setup-ollama-model.sh qwen2.5-coder:0.5b
 ```
 
 Start the pinned LiteLLM gateway. It creates `litellm/.venv`, runs
@@ -150,6 +208,38 @@ Start the pinned LiteLLM gateway. It creates `litellm/.venv`, runs
 scripts/install-uv.sh    # verifies the checksum, installs uv 0.13.5
 litellm/run.sh
 ```
+
+## Environment variables
+
+The default local setup needs no `.env` file. Required values are set where
+they belong:
+
+- `litellm/run.sh` exports `LITELLM_TELEMETRY_DISABLED=true` and
+  `LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true` for the
+  loopback-only gateway.
+- `sbxenv.yaml` sets `LITELLM_BASE_URL=http://host.docker.internal:4000/v1`
+  for OpenCode.
+- `providers/litellm/kit.yaml` allows `localhost:4000` literally. sbx resolves
+  kit capabilities before `sbxenv` `env:` is visible to `kit.env`, so this
+  value cannot use `${{ kit.env... }}`. Changing the gateway port means
+  updating the kit, `litellm/run.sh`, and `LITELLM_BASE_URL`.
+
+There is no single file for every variable: `sbxenv.yaml` and the kit are the
+sandbox side, while `litellm/run.sh` and optional `litellm/.env` are the host
+side. Keep those two groups separate.
+
+Optional values:
+
+- `DEEPSEEK_API_KEY` — only when enabling the commented DeepSeek model. Put
+  it in `litellm/.env` (copy `litellm/.env.example`; the file is gitignored
+  and loaded by `run.sh`), or export it before `litellm/run.sh`.
+- `OLLAMA_NUM_CTX` and `OLLAMA_LOCAL_TAG` — shell variables for
+  `scripts/setup-ollama-model.sh`, for example
+  `OLLAMA_NUM_CTX=16384 scripts/setup-ollama-model.sh qwen2.5-coder:0.5b`.
+- `OLLAMA_MODELS` — only if Ollama stores models outside `~/.ollama/models`.
+
+Do not commit `litellm/.env`. The sandbox never receives the DeepSeek key; it
+is used only by LiteLLM on the host.
 
 ## Plan and run the sandbox
 
@@ -163,9 +253,24 @@ the sandbox is created; recreate it after changing them.
 
 ## Models
 
-The default model is `qwen-coder`, an Ollama overlay of `qwen2.5-coder:7b` with
-`num_ctx 32768` and `temperature 0.2`. LiteLLM exposes it as the `qwen-coder`
-alias; `workspace/opencode.json` selects `litellm/qwen-coder`.
+The default model is `qwen-coder`, backed by the local Ollama tag
+`qwen-coder-local`. `scripts/setup-ollama-model.sh` creates it:
+
+- with no argument, it pulls `qwen2.5-coder:7b` and uses the committed
+  `models/qwen-coder-7b.Modelfile` (32k context, temperature 0.2);
+- with a base tag, it pulls that model and generates a temporary Modelfile
+  with the same settings.
+
+To test a smaller model, run
+`scripts/setup-ollama-model.sh qwen2.5-coder:0.5b`. The script replaces
+`qwen-coder-local`; LiteLLM and OpenCode keep the same `qwen-coder` alias, so
+no configuration changes are needed. Rerun the script with no argument to
+switch back to 7B.
+
+`OLLAMA_NUM_CTX=16384` overrides the context for generated test models; keep
+`limit.context` in `workspace/opencode.json` in sync. The 0.5b, 1.5b, 3b, and
+7b base digests are pinned in `models/ollama-model-digests.txt`; unpinned test
+tags skip verification with a warning.
 
 Switch models per session with `/models`.
 
@@ -309,8 +414,10 @@ pre-commit run --hook-stage manual trivy-audit
   CVE-2026-112940. LiteLLM 1.106.3 requires `filelock<4.0`, so the fixed
   4.2.1 cannot be installed. See [SECURITY.md](SECURITY.md) and
   `.trivyignore.yaml`.
-- LiteLLM has no master key by default and binds loopback. On a shared host,
-  set `general_settings.master_key` and give the sandbox a key.
+- LiteLLM binds loopback and runs unauthenticated through the explicit
+  `LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY` local-only override in
+  `run.sh`. On a shared host, set `LITELLM_MASTER_KEY` and give the sandbox the
+  key instead.
 - MCP servers run inside the sandbox, not as host-side processes.
 - OpenCode can modify files in the mounted workspace.
 - Keep credentials and sandbox configuration outside the writable workspace.

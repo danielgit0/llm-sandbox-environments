@@ -21,7 +21,7 @@ OpenCode (sandbox)
   └─ http://host.docker.internal:4000/v1     (only egress: localhost:4000)
        └─ LiteLLM 1.106.3   (host uv project, 127.0.0.1:4000)
             └─ Ollama 0.40.10 (host, 127.0.0.1:11434)
-                 └─ qwen2.5-coder:7b (pinned manifest digest)
+                 └─ qwen-coder-local (backed by a pinned qwen2.5-coder base)
 ```
 
 - `sbxenv.yaml` selects the workload kit, the MCP kit, and the LiteLLM egress
@@ -33,7 +33,7 @@ OpenCode (sandbox)
 - `providers/litellm/kit.yaml` is the only model egress rule.
 - `litellm/` is a uv project: `pyproject.toml`, `uv.lock`, `config.yaml`,
   `run.sh`.
-- `models/` holds the Ollama Modelfile overlay.
+- `models/` holds the default 7B Modelfile and the base-model digest map.
 - `scripts/` holds the audit gate and model digest check.
 
 ## Non-negotiables
@@ -69,6 +69,14 @@ OpenCode (sandbox)
 Run `scripts/install-uv.sh` once. Do not rely on the ambient `uv`; the wrapper
 uses the checksum-verified binary in `.tools/`.
 
+## Environment
+
+Required LiteLLM variables live in `litellm/run.sh`; sandbox variables live in
+`sbxenv.yaml`. The LiteLLM egress host:port is literal in
+`providers/litellm/kit.yaml` because sbx resolves it before `sbxenv` env is
+visible to `kit.env`. Optional host secrets go in `litellm/.env` (gitignored,
+loaded by `run.sh`); never commit it or mount it into the sandbox.
+
 ## Common tasks
 
 ### Add an MCP server
@@ -80,10 +88,16 @@ archive hashes; add the kit to `sbxenv.yaml`; register the binary in
 
 ### Add or change a model
 
-A local model needs an Ollama tag created with `num_ctx`, a `model_list` entry
-in `litellm/config.yaml`, and an alias under `provider.litellm.models` in
-`workspace/opencode.json`. A hosted provider goes in `litellm/config.yaml`
-only; its key stays on the host. Model changes do not need sandbox recreation.
+The default local model is the stable tag `qwen-coder-local`, created by
+`scripts/setup-ollama-model.sh`. With no argument it pulls
+`qwen2.5-coder:7b` and uses `models/qwen-coder-7b.Modelfile`; pass another
+base tag (for example `qwen2.5-coder:0.5b`) to generate a temporary Modelfile
+and replace the tag. LiteLLM and OpenCode keep the `qwen-coder` alias, so
+switching sizes needs no config change. Base digests are pinned in
+`models/ollama-model-digests.txt`; unpinned test tags skip verification.
+
+A hosted provider goes in `litellm/config.yaml` only; its key stays on the
+host. Model changes do not need sandbox recreation.
 
 ### Update a pin
 
@@ -115,7 +129,7 @@ sbx env plan ./sbxenv.yaml
 scripts/audit.sh
 
 # Model integrity, after pulling the model.
-scripts/verify-ollama-model.sh
+scripts/verify-ollama-model.sh qwen2.5-coder:7b
 
 # Fast lint suite (default pre-commit stage).
 pre-commit run --all-files
