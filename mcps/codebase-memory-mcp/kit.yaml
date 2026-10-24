@@ -1,0 +1,27 @@
+# syntax=docker/sandbox-kit:3
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/sandbox-kit-spec/main/schema/kit.schema.json
+schemaVersion: "3"
+kind: mixin
+displayName: Codebase Memory MCP
+description: Installs codebase-memory-mcp into the OpenCode sandbox image.
+sourceUrl: https://github.com/DeusData/codebase-memory-mcp
+licenses:
+  - MIT
+dockerfile: ./kit.Dockerfile
+
+args:
+  # The pinned upstream release. This is the only place the version is written;
+  # the Dockerfile receives it as the MCP_VERSION build argument.
+  version:
+    default: "0.12.1"
+    pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+    buildArg: MCP_VERSION
+
+capabilities:
+  # agent-context@1 is the version documented in Docker's capability table.
+  # @2 (inline-only `content`) was only merged into the spec on 2026-10-20; switch
+  # to it once `sbx version` lists support. The OpenCode workload owns the
+  # destination file (AGENTS.md); each MCP mixin only contributes text to it.
+  - type: com.docker.sandbox/agent-context@1
+    config:
+      contentFile: ./context.md

@@ -1,0 +1,30 @@
+schemaVersion: "1"
+name: opencode-with-mcps
+
+# The v3 workload name is the last component of its OCI reference.
+agent: sbx-kit-opencode
+workspace: ./workspace
+
+# One local kit per MCP server, each a self-contained directory under ./mcps/.
+# Add a new server by copying mcps/codebase-memory-mcp/ and appending its directory
+# here and its command to workspace/opencode.json.
+kits:
+  - docker.io/docker/sbx-kit-opencode:1.18.31
+  - ./mcps/codebase-memory-mcp
+
+sandboxOptions:
+  cpus: 4
+  memory: 8g
+  skills: readonly
+
+# Example ports; remove entries you do not need.
+ports:
+  - sandbox: 8081
+    host: 8081
+    hostIP: 127.0.0.1
+  - sandbox: 3000
+    host: 3000
+    hostIP: 127.0.0.1
+
+env:
+  LANG: C.UTF-8
