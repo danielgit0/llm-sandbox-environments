@@ -22,7 +22,7 @@ vulnerabilities. `scripts/audit.sh` is the gate that checks that.
 - Python: 3.12.15, pinned in `litellm/.python-version`
 - uv: 0.13.5, installed by `scripts/install-uv.sh` after SHA-256
   verification and invoked via `scripts/uv`
-- Ollama: 0.40.10
+- Ollama: 0.40.10 (optional local fallback)
   - `Ollama-darwin.zip`:
     `0c8ac7dc394a7b6171d8531bdaba60dd8dd2d8ed525ebc6c4526a91497a029ee`
   - `ollama-darwin.tgz`:
@@ -38,6 +38,8 @@ vulnerabilities. `scripts/audit.sh` is the gate that checks that.
 - DSH uv builder:
   `ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff`
 - DSH Python: 3.12.15 (`dsh/.python-version`)
+- Flutter: 3.47.6 / Dart 3.13.5 on the macOS host (`flutter-mcp`)
+- mcp-proxy: 0.13.0, locked in `flutter-mcp/uv.lock`
 - hadolint (dev): `docker.io/hadolint/hadolint:v2.14.0@sha256:27086352fd5e1907ea2b934eb1023f217c5ae087992eb59fde121dce9c9ff21e`
 - Tested sandbox CLI: `sbx 0.48.0`
 
@@ -111,6 +113,12 @@ that finding is recorded above and in the README Known issue.
 - **DSH ACP defaults to hosted DeepSeek.** Prompts routed to `deepseek` leave
   the host through LiteLLM and are billed by the provider. `DEEPSEEK_API_KEY`
   stays in `litellm/.env`; the sandbox receives only `not-needed`.
+- **Flutter host bridge is a deliberate host capability.** Flutter's Linux
+  SDK is x86_64-only, so `flutter-mcp` runs Flutter/Dart MCP on macOS and
+  allows the Flutter sandbox to reach `localhost:3100`. Flutter commands and
+  the project pre-commit execute on the host, outside the microVM; the sandbox
+  can invoke them through MCP. Pin `mcp-proxy==0.13.0` in
+  `flutter-mcp/uv.lock` and keep the bridge on `127.0.0.1`.
 - **DSH SDK is a pre-release.** `deepseek-harness-sdk==0.2.1rc2` is pinned
   exactly. Its web profile has missing directory-picker peers; the ACP profile
   is used instead.

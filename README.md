@@ -2,8 +2,8 @@
 
 This project runs OpenCode in Docker Sandboxes with MCP servers installed into
 the sandbox image and a host-side LiteLLM gateway. The sandbox has exactly one
-model egress path: LiteLLM. LiteLLM reaches Ollama on the host (Qwen2.5-Coder
-7B) and hosted DeepSeek for the DSH ACP workload.
+model egress path: LiteLLM. Only hosted DeepSeek is enabled; local Qwen is
+not wired into LiteLLM or OpenCode.
 
 All runtime components are pinned by version plus digest or hash. See
 [SECURITY.md](SECURITY.md) for the pins, audit gate, and accepted risks. The
@@ -12,19 +12,17 @@ upstream OpenCode workload image currently has an open finding; see
 
 ## Architecture
 
-OpenCode runs inside the sandbox. LiteLLM and Ollama run on the host. The
-sandbox has one model egress path: the host-side LiteLLM gateway.
+OpenCode runs inside the sandbox. LiteLLM runs on the host and reaches hosted
+DeepSeek.
 
 ```mermaid
 flowchart LR
     subgraph Host["Host"]
         direction TB
-        Ollama["Ollama 0.40.10<br/>qwen-coder-local<br/>127.0.0.1:11434"]
+        DeepSeek["DeepSeek API<br/>api.deepseek.com"]
         LiteLLM["LiteLLM 1.106.3<br/>127.0.0.1:4000"]
-        Secrets["litellm/.env<br/>optional host secrets"]
-        Providers["Hosted providers<br/>optional"]
-        LiteLLM -->|"ollama_chat"| Ollama
-        LiteLLM -.->|"HTTPS"| Providers
+        Secrets["litellm/.env<br/>DEEPSEEK_API_KEY"]
+        LiteLLM -->|"HTTPS"| DeepSeek
         Secrets -.-> LiteLLM
     end
 
@@ -47,9 +45,8 @@ The three layers are:
 1. **Sandbox**: OpenCode and the MCP server. The agent can write the mounted
    `workspace/` only.
 2. **Host gateway**: LiteLLM accepts OpenAI-compatible requests on loopback
-   and holds any provider credentials. It is the only model egress.
-3. **Host model backend**: Ollama serves `qwen-coder-local`; hosted providers
-   are optional and reached only by LiteLLM.
+   and holds the DeepSeek key. It is the only model egress.
+3. **Host model backend**: hosted DeepSeek only.
 
 The sandbox-facing name `host.docker.internal` is rewritten to `localhost` by
 the sandbox proxy, which is why the egress rule names `localhost:4000`.
@@ -58,13 +55,12 @@ the sandbox proxy, which is why the egress rule names `localhost:4000`.
 
 ```mermaid
 flowchart LR
-    Base["qwen2.5-coder:0.5b / 1.5b / 3b / 7b"] -->|"scripts/setup-ollama-model.sh"| Local["Ollama tag<br/>qwen-coder-local"]
-    Local -->|"litellm/config.yaml"| Alias["LiteLLM model_name<br/>qwen-coder"]
-    Alias -->|"workspace/opencode.json"| Selected["OpenCode model<br/>litellm/qwen-coder"]
+    DeepSeek["DeepSeek API"] -->|"deepseek/deepseek-v4-flash"| LiteLLM["LiteLLM model_name<br/>deepseek-flash"]
+    LiteLLM -->|"workspace/opencode.json"| Selected["OpenCode model<br/>litellm/deepseek-flash"]
 ```
 
-The OpenCode label is cosmetic; the actual base is whichever
-`qwen-coder-local` points to. Run `ollama ps` to see the loaded model.
+The DSH ACP workload uses the same LiteLLM alias. Local Qwen assets remain in
+the repository but are not referenced by the active configuration.
 
 ## Layout
 
@@ -74,14 +70,15 @@ The OpenCode label is cosmetic; the actual base is whichever
 ├── .yamllint.yaml              # YAML style config for pre-commit
 ├── sbxenv.yaml                 # sandbox, kit list, LiteLLM endpoint
 ├── sbxenv.dsh.yaml             # experimental DeepSeek Harness sandbox
+├── sbxenv.flutter.yaml         # local Flutter host-MCP environment
 ├── SECURITY.md                 # pins, audit, accepted risks
 ├── litellm/
 │   ├── .python-version         # 3.12.15 for the uv project
-│   ├── config.yaml             # model_list: local Qwen + hosted DeepSeek
+│   ├── config.yaml             # model_list: hosted DeepSeek
 │   ├── pyproject.toml          # litellm[proxy]==1.106.3
 │   ├── uv.lock                 # universal, hash-locked
 │   └── run.sh                  # uv sync --frozen + uv run on 127.0.0.1
-├── models/
+├── models/                    # optional local Qwen (disabled)
 │   ├── ollama-model-digests.txt # base model -> manifest SHA-256
 │   └── qwen-coder-7b.Modelfile  # 32k context + low temperature overlay
 ├── mcps/                       # one self-contained mixin per MCP server
@@ -92,7 +89,12 @@ The OpenCode label is cosmetic; the actual base is whichever
 │       ├── context.md          # instructions appended to the agent's AGENTS.md
 │       └── README.md           # upstream, pin, verification, update notes
 ├── providers/
-│   └── litellm/kit.yaml        # the only model egress rule
+│   ├── litellm/kit.yaml        # the only model egress rule
+│   └── flutter-mcp/            # localhost:3100 egress + ACP MCP patch
+│       ├── kit.yaml
+│       ├── kit.Dockerfile
+│       ├── mcp.patch.yml
+│       └── README.md
 ├── scripts/
 │   ├── audit.sh                # trivy vulnerability gate
 │   ├── check-jsonc.py          # JSONC validator for opencode.example.jsonc
@@ -101,6 +103,10 @@ The OpenCode label is cosmetic; the actual base is whichever
 │   ├── setup-ollama-model.sh   # pull base + create qwen-coder-local
 │   ├── uv                      # wrapper for the pinned uv
 │   └── verify-ollama-model.sh  # model manifest digest check
+├── flutter-mcp/                # host Flutter/Dart MCP HTTP bridge
+│   ├── pyproject.toml          # mcp-proxy==0.13.0
+│   ├── uv.lock                 # hash-locked bridge
+│   └── run.sh                  # 127.0.0.1:3100, dart mcp-server
 ├── dsh/                        # experimental DeepSeek Harness workload
 │   ├── kit.yaml                # v3 workload: DSH ACP
 │   ├── kit.Dockerfile          # uv image + Python 3.12 + DSH SDK
@@ -112,8 +118,10 @@ The OpenCode label is cosmetic; the actual base is whichever
     └── opencode.example.jsonc  # commented samples for more models
 ```
 
-The sandbox cannot reach Ollama or `api.deepseek.com` directly. Only
-`localhost:4000` (LiteLLM, through the proxy) is allowed.
+The sandbox cannot reach Ollama or `api.deepseek.com` directly. The default
+environment allows only `localhost:4000` (LiteLLM, through the proxy). The
+Flutter host-bridge environment also allows `localhost:3100` for its MCP
+bridge; no provider API is reachable from the sandbox.
 
 ## Add an MCP server
 
@@ -171,7 +179,6 @@ project configuration.
 - Docker Sandboxes `sbx` CLI 0.48.0 (tested) with environment-file and Kit v3
   support.
 - Docker Buildx.
-- Ollama 0.40.10 on the host.
 - `curl` and `tar` for the pinned uv installer.
 - A supported host OS/hypervisor as listed in Docker's current Sandboxes
   installation docs.
@@ -190,27 +197,25 @@ rejects a field.
 - LiteLLM: 1.106.3, locked in `litellm/uv.lock` (`uv sync --frozen`)
 - Python: 3.12.15 (`litellm/.python-version`)
 - uv: 0.13.5, installed by `scripts/install-uv.sh` (checksum-verified)
-- Ollama: 0.40.10
-- qwen2.5-coder digests: pinned in `models/ollama-model-digests.txt`
-  (0.5b, 1.5b, 3b, 7b)
+- Ollama: 0.40.10 (inactive local assets)
+- qwen2.5-coder digests (inactive local assets): pinned in
+  `models/ollama-model-digests.txt` (0.5b, 1.5b, 3b, 7b)
 - DSH SDK: 0.2.1rc2, locked in `dsh/uv.lock`; runtime wheel is
   `deepseek-harness-runtime-bin==0.2.1rc2`
 - DSH uv builder:
   `ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff`
 - DSH Python: 3.12.15 (`dsh/.python-version`)
+- mcp-proxy: 0.13.0, locked in `flutter-mcp/uv.lock`
+- Flutter: 3.47.6 / Dart 3.13.5 on the host (`flutter-mcp`)
 
 `SECURITY.md` lists the full digests and the audit procedure.
 
 ## Set up the host
 
-Ollama must be 0.40.10. If you install it manually, verify the release asset
-against the checksums in [SECURITY.md](SECURITY.md).
+The default setup uses hosted DeepSeek. Put the key in `litellm/.env`:
 
-```bash
-ollama --version                    # must print 0.40.10
-scripts/setup-ollama-model.sh       # 7B default, uses the committed Modelfile
-# quick test model:
-# scripts/setup-ollama-model.sh qwen2.5-coder:0.5b
+```dotenv
+DEEPSEEK_API_KEY=sk-...
 ```
 
 Start the pinned LiteLLM gateway. It creates `litellm/.venv`, runs
@@ -222,10 +227,13 @@ scripts/install-uv.sh    # verifies the checksum, installs uv 0.13.5
 litellm/run.sh
 ```
 
+Ollama is not required for the active setup. The local Qwen scripts and
+Modelfile remain in the repository but are inactive.
+
 ## Environment variables
 
-The OpenCode local setup needs no `.env` file. The DSH ACP workload defaults
-to hosted DeepSeek and does require `DEEPSEEK_API_KEY`.
+The default OpenCode and DSH ACP workloads use hosted DeepSeek, so
+`DEEPSEEK_API_KEY` is required in `litellm/.env`.
 
 - `litellm/run.sh` exports `LITELLM_TELEMETRY_DISABLED=true` and
   `LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true` for the
@@ -296,46 +304,113 @@ needed and runs `dsh --profile acp` inside it over stdio.
 - The sandbox entrypoint is a keepalive; IntelliJ starts the ACP process on
   demand.
 - Model calls go through LiteLLM, so the sandbox has no DeepSeek key and no
-  provider egress. `dsh/acp.patch.yml` selects the hosted `deepseek` LiteLLM
-  alias; set `DEEPSEEK_API_KEY` in `litellm/.env`. For local testing, change
-  the patch model to `qwen-coder`.
+  provider egress. DSH ACP's advertised model IDs are mapped to hosted
+  LiteLLM aliases; set `DEEPSEEK_API_KEY` in `litellm/.env`.
 - The SDK's `web` profile in 0.2.1rc2 is incomplete (missing directory-picker
   peers). ACP does not depend on those packages.
 - DSH is experimental and has no security audit; see [SECURITY.md](SECURITY.md).
 
+## Flutter/Dart workload (local host bridge)
+
+Flutter/Dart run on macOS, not in the sandbox. The sandbox uses DSH for file
+edits and DeepSeek, `codebase-memory-mcp` locally, and a host MCP bridge for
+Flutter.
+
+Start the bridge in one terminal:
+
+```bash
+FLUTTER_PROJECT=/Users/daniel/.../blue_collar_app \
+FLUTTER_DART=/Users/daniel/development/flutter/bin/dart \
+flutter-mcp/run.sh
+```
+
+It listens on `127.0.0.1:3100`; `/mcp` is the Streamable HTTP endpoint.
+
+Set the Flutter project path in `sbxenv.flutter.yaml`:
+
+```yaml
+workspace: /Users/daniel/.../blue_collar_app
+```
+
+Then run the env file by absolute path from anywhere:
+
+```bash
+sbx env plan /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.yaml
+sbx env run /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.yaml
+```
+
+The kit paths are relative to this env file. `workspace` is optional in the
+schema, but this environment needs it; there is no `--workspace` flag.
+
+The sandbox name is `flutter-sandbox`.
+
+### Verify from inside the sandbox
+
+```bash
+sbx exec -it flutter-sandbox bash
+```
+
+Inside:
+
+```bash
+pwd
+ls
+command -v codebase-memory-mcp
+codebase-memory-mcp --version
+curl -s -o /dev/null -w '%{http_code}\n' http://host.docker.internal:3100/mcp
+exit
+```
+
+`flutter` and `dart` are intentionally **not** in this sandbox; they run on
+the host. An HTTP status other than `000` proves the sandbox can reach the
+bridge; `000` means it cannot.
+
+### MCP registration
+
+The ACP wrapper auto-detects `/opt/flutter-mcp/mcp.patch.yml` and passes it to
+DSH. The patch registers:
+
+- `mcp__dart__*` via the host bridge;
+- `mcp__codebase_memory__*` via the sandbox binary.
+
+No IntelliJ custom MCP pass-through is needed.
+
+For IntelliJ, use the ACP wrapper with:
+
+```json
+{
+  "agent_servers": {
+    "Flutter Sandbox": {
+      "command": "/Users/daniel/Documents/projects/opencode-sandbox/scripts/dsh-acp-sandbox.sh",
+      "args": [],
+      "env": { "DSH_SANDBOX_NAME": "flutter-sandbox" }
+    }
+  }
+}
+```
+
+### Tradeoffs
+
+- Flutter/Dart and the project pre-commit execute on the host, outside the
+  sandbox. The sandbox agent can call them through MCP; treat the bridge as a
+  trusted host capability.
+- iOS and Android builds/run on the host, where the SDKs and Xcode live.
+- The sandbox gets only the project workspace, LiteLLM, and the
+  `localhost:3100` MCP endpoint.
+
 ## Models
 
-The default model is `qwen-coder`, backed by the local Ollama tag
-`qwen-coder-local`. `scripts/setup-ollama-model.sh` creates it:
+Only hosted DeepSeek is enabled. LiteLLM exposes the two user-facing DSH
+models: `deepseek-flash` (V4.1 Flash) and `deepseek-v4-pro` (V4 Pro).
 
-- with no argument, it pulls `qwen2.5-coder:7b` and uses the committed
-  `models/qwen-coder-7b.Modelfile` (32k context, temperature 0.2);
-- with a base tag, it pulls that model and generates a temporary Modelfile
-  with the same settings.
+The local Qwen scripts, digest map, and Modelfile remain in the repository for
+reference, but nothing references them: `qwen-coder` is not in LiteLLM's model
+list and not in OpenCode's provider models.
 
-To test a smaller model, run
-`scripts/setup-ollama-model.sh qwen2.5-coder:0.5b`. The script replaces
-`qwen-coder-local`; LiteLLM and OpenCode keep the same `qwen-coder` alias, so
-no configuration changes are needed. Rerun the script with no argument to
-switch back to 7B.
-
-`OLLAMA_NUM_CTX=16384` overrides the context for generated test models; keep
-`limit.context` in `workspace/opencode.json` in sync. The 0.5b, 1.5b, 3b, and
-7b base digests are pinned in `models/ollama-model-digests.txt`; unpinned test
-tags skip verification with a warning.
-
-Switch models per session with `/models`.
-
-To add a local model: create its Ollama tag with `num_ctx`, add a
-`model_list` entry in `litellm/config.yaml`, add the alias under
-`provider.litellm.models` in `workspace/opencode.json`, and select it. No
-sandbox recreation is needed because the kit and env do not change.
-
-To add a hosted provider through LiteLLM: add the deployment and key in
-`litellm/config.yaml` (for example `deepseek/deepseek-v4-pro` with
-`os.environ/DEEPSEEK_API_KEY`), add the alias, restart LiteLLM, and select it.
-The sandbox still only reaches LiteLLM; no new egress rule is required.
-`workspace/opencode.example.jsonc` has commented samples for both cases.
+To add another hosted provider through LiteLLM: add the deployment and key in
+`litellm/config.yaml`, add the alias under `provider.litellm.models`, restart
+LiteLLM, and select it with `/models`. The sandbox still only reaches LiteLLM;
+no new egress rule is required.
 
 ## Validation
 
@@ -363,7 +438,7 @@ scripts/audit.sh
 curl -s http://127.0.0.1:4000/v1/models
 curl -s http://127.0.0.1:4000/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"model":"qwen-coder","messages":[{"role":"user","content":"Say OK"}]}'
+  -d '{"model":"deepseek","messages":[{"role":"user","content":"Say OK"}]}'
 ```
 
 Then verify from inside the sandbox:
@@ -377,13 +452,13 @@ Expected:
 
 - `sbx kit inspect` prints the OpenCode kit at the pinned digest.
 - `sbx env plan` lists `./mcps/codebase-memory-mcp` and
-  `./providers/litellm`, plus `LITELLM_EGRESS` and `LITELLM_BASE_URL`.
+  `./providers/litellm`, plus `LITELLM_BASE_URL`.
 - `scripts/audit.sh` passes for the LiteLLM lockfile, MCP Dockerfile, and MCP
   base image. It fails on the pinned OpenCode workload image; see Known issue.
-- LiteLLM returns a non-empty model list containing `qwen-coder`.
+- LiteLLM returns `deepseek-flash` and `deepseek-v4-pro`.
 - The sandbox sees LiteLLM at `localhost:4000`.
-- In OpenCode, `/models` shows `LiteLLM` / `qwen-coder` and `/mcp` shows
-  `codebase-memory-mcp`.
+- In OpenCode, `/models` shows `LiteLLM` / `deepseek-flash` and `/mcp`
+  shows `codebase-memory-mcp`.
 
 Confirm that Ollama is **not** reachable from the sandbox:
 

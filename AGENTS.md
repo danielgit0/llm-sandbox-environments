@@ -20,8 +20,7 @@ project rules, put them in the mounted workspace or in an MCP `context.md`.
 OpenCode (sandbox)
   └─ http://host.docker.internal:4000/v1     (only egress: localhost:4000)
        └─ LiteLLM 1.106.3   (host uv project, 127.0.0.1:4000)
-            └─ Ollama 0.40.10 (host, 127.0.0.1:11434)
-                 └─ qwen-coder-local (backed by a pinned qwen2.5-coder base)
+            └─ DeepSeek API (host egress; key in litellm/.env)
 ```
 
 - `sbxenv.yaml` selects the workload kit, the MCP kit, and the LiteLLM egress
@@ -30,12 +29,14 @@ OpenCode (sandbox)
   servers with OpenCode.
 - `mcps/<name>/` contains self-contained v3 mixins that install MCP binaries
   into the sandbox image.
+- `flutter-mcp/` is the host-side stdio-to-HTTP bridge for Flutter/Dart MCP;
+  `providers/flutter-mcp` allows the sandbox to reach it.
 - `providers/litellm/kit.yaml` is the only model egress rule.
 - `dsh/` is an experimental v3 DeepSeek Harness workload; `sbxenv.dsh.yaml`
   selects it. It shares LiteLLM and the egress mixin but has its own workspace.
 - `litellm/` is a uv project: `pyproject.toml`, `uv.lock`, `config.yaml`,
   `run.sh`.
-- `models/` holds the default 7B Modelfile and the base-model digest map.
+- `models/` holds inactive local Qwen assets.
 - `scripts/` holds the audit gate and model digest check.
 
 ## Non-negotiables
@@ -48,9 +49,10 @@ OpenCode (sandbox)
 - **Never weaken a gate to make it pass.** Do not delete `scripts/audit.sh`
   scans, lower severities, or add broad `.trivyignore.yaml` entries. An
   exception needs an exact path, a statement, and an expiry.
-- **Keep the sandbox egress minimal.** The sandbox may reach only
-  `localhost:4000` (LiteLLM). Do not add Ollama or provider APIs to the sandbox;
-  add providers behind LiteLLM instead.
+- **Keep the sandbox egress minimal.** The default sandbox may reach only
+  `localhost:4000` (LiteLLM). The Flutter host-bridge environment additionally
+  allows `localhost:3100` for the MCP bridge. Do not add Ollama or provider
+  APIs to the sandbox; add providers behind LiteLLM instead.
 - **Keep keys off the sandbox.** Provider keys stay in LiteLLM's host
   environment. Never put keys in YAML, JSON, Dockerfiles, or `uv.lock`.
 - **Keep MCP registration in `workspace/opencode.json`.** These servers are
@@ -65,7 +67,9 @@ OpenCode (sandbox)
 - `required-version` in `litellm/pyproject.toml` also enforces it.
 - Python **3.12.15** (`litellm/.python-version`).
 - `sbx` 0.48.0 tested.
-- Ollama **0.40.10**.
+- Ollama **0.40.10** (inactive local assets).
+- Flutter **3.47.6** / Dart **3.13.5** on the host for the local Flutter bridge.
+- `mcp-proxy` **0.13.0** in `flutter-mcp/uv.lock`.
 - Trivy, hadolint, pre-commit.
 
 Run `scripts/install-uv.sh` once. Do not rely on the ambient `uv`; the wrapper
@@ -97,22 +101,32 @@ keeps the sandbox alive. IntelliJ launches `dsh --profile acp` through
 Keep it additive: do not change the OpenCode workload or workspace when
 iterating on DSH.
 
-The agent's model traffic still goes through LiteLLM. The ACP patch defaults
-to hosted DeepSeek; `DEEPSEEK_API_KEY` belongs in `litellm/.env`. The SDK web
-profile is not used; it is incomplete in 0.2.1rc2.
+The agent's model traffic still goes through LiteLLM. DSH's `deepseek-*`
+model IDs are mapped to hosted LiteLLM aliases; `DEEPSEEK_API_KEY` belongs in
+`litellm/.env`. The SDK web profile is not used; it is incomplete in 0.2.1rc2.
+
+### Flutter workload (local host bridge)
+
+Flutter/Dart run on the macOS host, not in the sandbox. `flutter-mcp/run.sh`
+starts `mcp-proxy` on `127.0.0.1:3100` and spawns `dart mcp-server` with the
+project as cwd. `providers/flutter-mcp` allows `localhost:3100` from the
+sandbox and installs the ACP MCP patch.
+
+`sbxenv.flutter.yaml` is the local environment: DSH,
+codebase-memory, LiteLLM, and the host Flutter egress. Set its `workspace` to
+the project path. The ACP wrapper auto-detects `/opt/flutter-mcp/mcp.patch.yml`
+and registers both MCP servers. Flutter/Dart and the project's pre-commit stay
+on the host; do not add Flutter hooks to this repo.
 
 ### Add or change a model
 
-The default local model is the stable tag `qwen-coder-local`, created by
-`scripts/setup-ollama-model.sh`. With no argument it pulls
-`qwen2.5-coder:7b` and uses `models/qwen-coder-7b.Modelfile`; pass another
-base tag (for example `qwen2.5-coder:0.5b`) to generate a temporary Modelfile
-and replace the tag. LiteLLM and OpenCode keep the `qwen-coder` alias, so
-switching sizes needs no config change. Base digests are pinned in
-`models/ollama-model-digests.txt`; unpinned test tags skip verification.
+The default is hosted DeepSeek through LiteLLM. Set `DEEPSEEK_API_KEY` in
+`litellm/.env`; OpenCode selects `litellm/deepseek-flash`, and DSH advertises
+`deepseek-flash` (V4.1 Flash) and `deepseek-v4-pro` (V4 Pro).
 
-A hosted provider goes in `litellm/config.yaml` only; its key stays on the
-host. Model changes do not need sandbox recreation.
+Only hosted DeepSeek is active (`deepseek-flash` and `deepseek-v4-pro`).
+The local Qwen scripts and assets remain in the repository but are not
+referenced by LiteLLM, OpenCode, or DSH.
 
 ### Update a pin
 
@@ -141,6 +155,9 @@ cd dsh
 cd ..
 sbx env plan ./sbxenv.dsh.yaml
 
+# Local Flutter host-bridge environment; set workspace first.
+sbx env plan ./sbxenv.flutter.yaml
+
 # Sandbox configuration resolves.
 sbx kit inspect \
   docker.io/docker/sbx-kit-opencode@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
@@ -149,8 +166,8 @@ sbx env plan ./sbxenv.yaml
 # Audit. It intentionally fails on the upstream OpenCode image; see below.
 scripts/audit.sh
 
-# Model integrity, after pulling the model.
-scripts/verify-ollama-model.sh qwen2.5-coder:7b
+# Optional local assets only; not part of the active setup.
+# scripts/verify-ollama-model.sh qwen2.5-coder:7b
 
 # Fast lint suite (default pre-commit stage).
 pre-commit run --all-files
@@ -185,9 +202,23 @@ docker buildx build --platform linux/amd64 \
   be installed. Re-check when LiteLLM relaxes the constraint.
 - **`docker.io/docker/sbx-kit-opencode:1.19.4` does not exist.** The pin is
   `1.18.33`.
+- **Flutter runs on the host by design.** Flutter's Linux SDK is x86_64-only,
+  so the local setup uses the host MCP bridge. iOS/Android SDKs and the project
+  pre-commit remain on the host.
 - **DSH is an experimental RC.** `deepseek-harness-sdk==0.2.1rc2` is a
   pre-release with no security audit. Its web profile has missing
   directory-picker peers in this wheel; use the ACP profile for IntelliJ.
+
+## Change management
+
+- **Never commit, amend, tag, or push without explicit user approval.**
+- Keep changes in incremental, logically grouped working sets; do not mix
+  unrelated edits.
+- Group uncommitted changes into separate Git changelists by concern (for
+  example runtime config, documentation, tooling). Each group must be
+  independently reviewable.
+- Present the changelist grouping and wait for approval before staging or
+  committing.
 
 ## Style and hygiene
 
