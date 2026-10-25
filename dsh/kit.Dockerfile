@@ -16,6 +16,7 @@ RUN uv --version \
 
 WORKDIR /opt/dsh
 COPY pyproject.toml uv.lock .python-version ./
+COPY acp.patch.yml /opt/dsh/acp.patch.yml
 RUN uv sync --frozen --no-dev --python 3.12.15 \
     && chmod -R a+rX /opt/dsh /opt/python \
     && rm -rf "$UV_CACHE_DIR"
@@ -27,10 +28,9 @@ ENV PATH="/opt/dsh/.venv/bin:$PATH" \
 RUN mkdir -p /home/agent/workspace /home/agent/.dsh \
     && chown -R agent:agent /home/agent
 
-COPY dsh-web.sh /usr/local/bin/dsh-web
-RUN chmod 0755 /usr/local/bin/dsh-web
-
 USER agent
 WORKDIR /home/agent/workspace
-EXPOSE 3000
-ENTRYPOINT ["/usr/local/bin/dsh-web"]
+
+# IntelliJ starts `dsh --profile acp` through scripts/dsh-acp-sandbox.sh.
+# Keep the sandbox alive between ACP sessions.
+ENTRYPOINT ["sleep", "infinity"]

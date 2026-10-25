@@ -3,7 +3,7 @@
 schemaVersion: "3"
 kind: workload
 displayName: DeepSeek Harness
-description: DeepSeek Harness web workload with uv-managed Python and no pip.
+description: DeepSeek Harness ACP workload with uv-managed Python and no pip.
 dockerfile: ./kit.Dockerfile
 
 capabilities:

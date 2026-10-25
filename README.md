@@ -97,11 +97,12 @@ The OpenCode label is cosmetic; the actual base is whichever
 │   ├── audit.sh                # trivy vulnerability gate
 │   ├── check-jsonc.py          # JSONC validator for opencode.example.jsonc
 │   ├── install-uv.sh           # verifies + installs pinned uv 0.13.5
+│   ├── dsh-acp-sandbox.sh      # IntelliJ ACP bridge into dsh-sandbox
 │   ├── setup-ollama-model.sh   # pull base + create qwen-coder-local
 │   ├── uv                      # wrapper for the pinned uv
 │   └── verify-ollama-model.sh  # model manifest digest check
 ├── dsh/                        # experimental DeepSeek Harness workload
-│   ├── kit.yaml                # v3 workload: dsh web
+│   ├── kit.yaml                # v3 workload: DSH ACP
 │   ├── kit.Dockerfile          # uv image + Python 3.12 + DSH SDK
 │   ├── pyproject.toml          # deepseek-harness-sdk==0.2.1rc2
 │   ├── uv.lock                 # hash-locked DSH runtime wheel
@@ -265,30 +266,39 @@ the sandbox is created; recreate it after changing them.
 
 ## DeepSeek Harness workload (experimental)
 
-`sbxenv.dsh.yaml` runs the DSH web UI in a dedicated sandbox. This is a
-separate, experimental workload; the OpenCode setup above is unchanged.
+`sbxenv.dsh.yaml` runs DSH in a dedicated sandbox and exposes its **ACP**
+profile for IntelliJ. This is separate from the OpenCode workload above.
 
 ```bash
 sbx env plan ./sbxenv.dsh.yaml
 sbx env run ./sbxenv.dsh.yaml
 ```
 
-Open the token URL after the sandbox starts. DSH writes it to
-`/home/agent/.dsh/web.log`; retrieve it with:
+Configure IntelliJ AI Assistant's ACP agents in `~/.jetbrains/acp.json`:
 
-```bash
-sbx exec dsh-sandbox cat /home/agent/.dsh/web.log
+```json
+{
+  "agent_servers": {
+    "DSH Sandbox": {
+      "command": "/Users/daniel/Documents/projects/opencode-sandbox/scripts/dsh-acp-sandbox.sh",
+      "args": []
+    }
+  }
+}
 ```
 
-Open the printed `127.0.0.1:3000` URL with its `?token=...` part.
+Then select **DSH Sandbox** in AI Chat. The wrapper starts the sandbox if
+needed and runs `dsh --profile acp` inside it over stdio.
 
 - `dsh/` is a v3 workload built from the pinned uv image. DSH is installed
   with `uv sync --frozen`; pip is not used.
-- `dsh web` is the full web profile; the limited `sdk-minimal` profile is not
-  used.
+- The sandbox entrypoint is a keepalive; IntelliJ starts the ACP process on
+  demand.
 - Model calls go through LiteLLM, so the sandbox has no DeepSeek key and no
-  provider egress.
-- The web UI is published on host loopback only.
+  provider egress. `dsh/acp.patch.yml` defaults the ACP model to the local
+  `qwen-coder` alias; change it after enabling DeepSeek in LiteLLM.
+- The SDK's `web` profile in 0.2.1rc2 is incomplete (missing directory-picker
+  peers). ACP does not depend on those packages.
 - DSH is experimental and has no security audit; see [SECURITY.md](SECURITY.md).
 
 ## Models

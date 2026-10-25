@@ -14,11 +14,6 @@ sandboxOptions:
   memory: 8g
   skills: readonly
 
-ports:
-  - sandbox: 3000
-    host: 3000
-    hostIP: 127.0.0.1
-
 env:
   # DSH routes model calls through the host-only LiteLLM gateway.
   DEEPSEEK_BASE_URL: http://host.docker.internal:4000/v1

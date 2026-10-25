@@ -1,25 +1,31 @@
 # DeepSeek Harness workload
 
-Experimental v3 workload that runs the DSH web UI in a Docker Sandbox.
+Experimental v3 workload that runs DSH's ACP profile inside a Docker Sandbox
+for IntelliJ.
 
 - `uv` builds Python 3.12.15 and installs `deepseek-harness-sdk==0.2.1rc2`
   from `uv.lock`; pip is not used.
-- The entrypoint binds `dsh web` to the sandbox interface and publishes port
-  3000 on host loopback.
+- The sandbox entrypoint is a keepalive. IntelliJ launches
+  `dsh --profile acp` through `scripts/dsh-acp-sandbox.sh`, which bridges
+  ACP stdio into the sandbox with `sbx exec -i`.
 - Model calls go through the host LiteLLM gateway. No DeepSeek key is placed
-  in the sandbox.
-- `dsh web` prints a one-time authentication URL with a token. It is written
-  to `/home/agent/.dsh/web.log`:
+  in the sandbox. `acp.patch.yml` defaults the ACP model to `qwen-coder`;
+  change it after enabling a hosted model in LiteLLM.
+- The SDK's `web` profile in 0.2.1rc2 is incomplete (missing directory-picker
+  peers). ACP does not depend on those packages and is the supported interface.
 
-  ```bash
-  sbx exec dsh-sandbox cat /home/agent/.dsh/web.log
-  ```
+IntelliJ configuration (`~/.jetbrains/acp.json`):
 
-  Open the printed `127.0.0.1:3000` URL with its token.
-
-The web profile currently logs two optional activation warnings
-(`dsh-host-directory-picker` and `libreoffice-kit`). The core agent and UI
-start; those optional entries are not installed by the SDK wheel.
+```json
+{
+  "agent_servers": {
+    "DSH Sandbox": {
+      "command": "/Users/daniel/Documents/projects/opencode-sandbox/scripts/dsh-acp-sandbox.sh",
+      "args": []
+    }
+  }
+}
+```
 
 Validation:
 
@@ -27,5 +33,6 @@ Validation:
 ../scripts/uv lock --check
 docker buildx build --platform linux/arm64 -f kit.Dockerfile \
   -t local/dsh:spike .
-docker run --rm --platform linux/arm64 -p 3000:3000 local/dsh:spike
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{}}}' \
+  | ../scripts/dsh-acp-sandbox.sh
 ```

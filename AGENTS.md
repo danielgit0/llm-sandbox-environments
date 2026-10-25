@@ -92,11 +92,13 @@ archive hashes; add the kit to `sbxenv.yaml`; register the binary in
 
 `dsh/` is a separate v3 workload selected by `sbxenv.dsh.yaml`. It uses the
 pinned uv image, installs `deepseek-harness-sdk` with `uv sync --frozen`, and
-runs `dsh web`. Keep it additive: do not change the OpenCode workload or
-workspace when iterating on DSH.
+keeps the sandbox alive. IntelliJ launches `dsh --profile acp` through
+`scripts/dsh-acp-sandbox.sh`, which bridges ACP stdio with `sbx exec -i`.
+Keep it additive: do not change the OpenCode workload or workspace when
+iterating on DSH.
 
-The DSH web UI prints a one-time token URL. The sandbox publishes only
-`127.0.0.1:3000`; the agent's model traffic still goes through LiteLLM.
+The agent's model traffic still goes through LiteLLM. The SDK web profile is
+not used; it is incomplete in 0.2.1rc2.
 
 ### Add or change a model
 
@@ -183,9 +185,8 @@ docker buildx build --platform linux/amd64 \
 - **`docker.io/docker/sbx-kit-opencode:1.19.4` does not exist.** The pin is
   `1.18.33`.
 - **DSH is an experimental RC.** `deepseek-harness-sdk==0.2.1rc2` is a
-  pre-release with no security audit. The web profile logs optional activation
-  warnings for `dsh-host-directory-picker` and `libreoffice-kit`; the core UI
-  and agent still start.
+  pre-release with no security audit. Its web profile has missing
+  directory-picker peers in this wheel; use the ACP profile for IntelliJ.
 
 ## Style and hygiene
 

@@ -103,14 +103,14 @@ that finding is recorded above and in the README Known issue.
   key instead.
 - **Host secrets live in `litellm/.env` or the invoking environment.** `.env`
   is gitignored and loaded by `run.sh`; it is never mounted into the sandbox.
-- **DSH is experimental and not security-audited.** The DSH web UI executes
-  model-generated code and commands. It is contained by the microVM, but the
-  microVM is the boundary; DSH's own SAFETY.md does not claim secure or
-  production-ready behavior. The web UI binds the sandbox interface and is
-  published on host loopback only; treat the token URL as a credential.
+- **DSH is experimental and not security-audited.** DSH ACP executes
+  model-generated code and commands inside the microVM. The microVM is the
+  boundary; DSH's own SAFETY.md does not claim secure or production-ready
+  behavior. IntelliJ reaches ACP only through local `sbx exec` stdio; no
+  network port is published.
 - **DSH SDK is a pre-release.** `deepseek-harness-sdk==0.2.1rc2` is pinned
-  exactly; the web profile currently logs optional activation warnings for
-  `dsh-host-directory-picker` and `libreoffice-kit`.
+  exactly. Its web profile has missing directory-picker peers; the ACP profile
+  is used instead.
 - **filelock CVE-2026-112940 (HIGH, fixed in 4.2.1).** LiteLLM 1.106.3
   requires `filelock<4.0`, so the fixed release cannot be installed without
   overriding an upstream constraint. The vulnerable `ReadWriteLock` path is
