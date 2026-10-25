@@ -9,8 +9,9 @@ for IntelliJ.
   `dsh --profile acp` through `scripts/dsh-acp-sandbox.sh`, which bridges
   ACP stdio into the sandbox with `sbx exec -i`.
 - Model calls go through the host LiteLLM gateway. No DeepSeek key is placed
-  in the sandbox. `acp.patch.yml` defaults the ACP model to `qwen-coder`;
-  change it after enabling a hosted model in LiteLLM.
+  in the sandbox. `acp.patch.yml` selects the hosted `deepseek` alias; set
+  `DEEPSEEK_API_KEY` in `litellm/.env`. Change the patch to `qwen-coder` for
+  local testing.
 - The SDK's `web` profile in 0.2.1rc2 is incomplete (missing directory-picker
   peers). ACP does not depend on those packages and is the supported interface.
 

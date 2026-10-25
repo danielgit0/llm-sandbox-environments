@@ -97,8 +97,9 @@ keeps the sandbox alive. IntelliJ launches `dsh --profile acp` through
 Keep it additive: do not change the OpenCode workload or workspace when
 iterating on DSH.
 
-The agent's model traffic still goes through LiteLLM. The SDK web profile is
-not used; it is incomplete in 0.2.1rc2.
+The agent's model traffic still goes through LiteLLM. The ACP patch defaults
+to hosted DeepSeek; `DEEPSEEK_API_KEY` belongs in `litellm/.env`. The SDK web
+profile is not used; it is incomplete in 0.2.1rc2.
 
 ### Add or change a model
 

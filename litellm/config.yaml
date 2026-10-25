@@ -15,10 +15,11 @@ model_list:
 
   # Hosted provider held by LiteLLM on the host. The key stays in the host
   # environment and never reaches the sandbox.
-  # - model_name: deepseek
-  #   litellm_params:
-  #     model: deepseek/deepseek-v4-pro
-  #     api_key: os.environ/DEEPSEEK_API_KEY
+  - model_name: deepseek
+    litellm_params:
+      # Replace with the model ID exposed by your DeepSeek account if needed.
+      model: deepseek/deepseek-v4-pro
+      api_key: os.environ/DEEPSEEK_API_KEY
 
   # Any other OpenAI-compatible provider:
   # - model_name: openrouter-deepseek

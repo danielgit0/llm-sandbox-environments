@@ -108,6 +108,9 @@ that finding is recorded above and in the README Known issue.
   boundary; DSH's own SAFETY.md does not claim secure or production-ready
   behavior. IntelliJ reaches ACP only through local `sbx exec` stdio; no
   network port is published.
+- **DSH ACP defaults to hosted DeepSeek.** Prompts routed to `deepseek` leave
+  the host through LiteLLM and are billed by the provider. `DEEPSEEK_API_KEY`
+  stays in `litellm/.env`; the sandbox receives only `not-needed`.
 - **DSH SDK is a pre-release.** `deepseek-harness-sdk==0.2.1rc2` is pinned
   exactly. Its web profile has missing directory-picker peers; the ACP profile
   is used instead.

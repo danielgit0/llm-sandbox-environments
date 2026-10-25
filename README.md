@@ -3,7 +3,7 @@
 This project runs OpenCode in Docker Sandboxes with MCP servers installed into
 the sandbox image and a host-side LiteLLM gateway. The sandbox has exactly one
 model egress path: LiteLLM. LiteLLM reaches Ollama on the host (Qwen2.5-Coder
-7B) and, when enabled, hosted providers such as DeepSeek.
+7B) and hosted DeepSeek for the DSH ACP workload.
 
 All runtime components are pinned by version plus digest or hash. See
 [SECURITY.md](SECURITY.md) for the pins, audit gate, and accepted risks. The
@@ -77,7 +77,7 @@ The OpenCode label is cosmetic; the actual base is whichever
 ├── SECURITY.md                 # pins, audit, accepted risks
 ├── litellm/
 │   ├── .python-version         # 3.12.15 for the uv project
-│   ├── config.yaml             # model_list: local Qwen, DeepSeek commented
+│   ├── config.yaml             # model_list: local Qwen + hosted DeepSeek
 │   ├── pyproject.toml          # litellm[proxy]==1.106.3
 │   ├── uv.lock                 # universal, hash-locked
 │   └── run.sh                  # uv sync --frozen + uv run on 127.0.0.1
@@ -224,8 +224,8 @@ litellm/run.sh
 
 ## Environment variables
 
-The default local setup needs no `.env` file. Required values are set where
-they belong:
+The OpenCode local setup needs no `.env` file. The DSH ACP workload defaults
+to hosted DeepSeek and does require `DEEPSEEK_API_KEY`.
 
 - `litellm/run.sh` exports `LITELLM_TELEMETRY_DISABLED=true` and
   `LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true` for the
@@ -243,9 +243,10 @@ side. Keep those two groups separate.
 
 Optional values:
 
-- `DEEPSEEK_API_KEY` — only when enabling the commented DeepSeek model. Put
-  it in `litellm/.env` (copy `litellm/.env.example`; the file is gitignored
-  and loaded by `run.sh`), or export it before `litellm/run.sh`.
+- `DEEPSEEK_API_KEY` — required for the DSH ACP default (hosted DeepSeek),
+  and used by OpenCode only if it selects DeepSeek. Put it in `litellm/.env`
+  (copy `litellm/.env.example`; the file is gitignored and loaded by
+  `run.sh`), or export it before `litellm/run.sh`.
 - `OLLAMA_NUM_CTX` and `OLLAMA_LOCAL_TAG` — shell variables for
   `scripts/setup-ollama-model.sh`, for example
   `OLLAMA_NUM_CTX=16384 scripts/setup-ollama-model.sh qwen2.5-coder:0.5b`.
@@ -295,8 +296,9 @@ needed and runs `dsh --profile acp` inside it over stdio.
 - The sandbox entrypoint is a keepalive; IntelliJ starts the ACP process on
   demand.
 - Model calls go through LiteLLM, so the sandbox has no DeepSeek key and no
-  provider egress. `dsh/acp.patch.yml` defaults the ACP model to the local
-  `qwen-coder` alias; change it after enabling DeepSeek in LiteLLM.
+  provider egress. `dsh/acp.patch.yml` selects the hosted `deepseek` LiteLLM
+  alias; set `DEEPSEEK_API_KEY` in `litellm/.env`. For local testing, change
+  the patch model to `qwen-coder`.
 - The SDK's `web` profile in 0.2.1rc2 is incomplete (missing directory-picker
   peers). ACP does not depend on those packages.
 - DSH is experimental and has no security audit; see [SECURITY.md](SECURITY.md).

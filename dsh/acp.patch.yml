@@ -1,6 +1,6 @@
-# IntelliJ uses the local LiteLLM alias by default. Change this to a hosted
-# LiteLLM model name after enabling DeepSeek in litellm/config.yaml.
+# IntelliJ uses the hosted DeepSeek model exposed by LiteLLM. Set
+# DEEPSEEK_API_KEY in litellm/.env; change model to qwen-coder for local use.
 - id: agent-default-model
   config:
     provider: deepseek-official
-    model: qwen-coder
+    model: deepseek
