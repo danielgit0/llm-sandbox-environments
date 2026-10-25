@@ -1,0 +1,19 @@
+# Host Flutter/Dart MCP over Streamable HTTP, plus the sandbox-local
+# codebase-memory MCP.
+- insert:
+    - id: flutter-dart-http
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: dart
+        transport: streamable-http
+        url: http://host.docker.internal:3100/mcp
+        failOnStartupError: true
+
+    - id: codebase-memory-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: codebase_memory
+        transport: stdio
+        command: /usr/local/bin/codebase-memory-mcp
+        args: []
+        failOnStartupError: true

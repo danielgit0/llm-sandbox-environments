@@ -1,0 +1,23 @@
+schemaVersion: "1"
+name: flutter-sandbox
+
+# Host Flutter MCP bridge: Flutter/Dart run on macOS, not in this sandbox.
+agent: dsh
+# Replace this with the absolute path to the Flutter project.
+workspace: /absolute/path/to/flutter-app
+
+kits:
+  - ./dsh
+  - ./mcps/codebase-memory-mcp
+  - ./providers/litellm
+  - ./providers/flutter-mcp
+
+sandboxOptions:
+  cpus: 4
+  memory: 8g
+  skills: readonly
+
+env:
+  DEEPSEEK_BASE_URL: http://host.docker.internal:4000/v1
+  DEEPSEEK_API_KEY: not-needed
+  LITELLM_BASE_URL: http://host.docker.internal:4000/v1

@@ -16,6 +16,7 @@ opencode.local.jsonc
 # ── Generated environments and caches ───────────────────
 litellm/.venv/
 dsh/.venv/
+flutter-mcp/.venv/
 .buildx/
 .uv-cache/
 .uv-python/
