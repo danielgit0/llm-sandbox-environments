@@ -16,7 +16,6 @@ RUN uv --version \
 
 WORKDIR /opt/dsh
 COPY pyproject.toml uv.lock .python-version ./
-COPY acp.patch.yml /opt/dsh/acp.patch.yml
 RUN uv sync --frozen --no-dev --python 3.12.15 \
     && chmod -R a+rX /opt/dsh /opt/python \
     && rm -rf "$UV_CACHE_DIR"
@@ -29,6 +28,8 @@ RUN mkdir -p /home/agent/workspace /home/agent/.dsh \
     && chown -R agent:agent /home/agent
 
 USER agent
+RUN dsh --profile acp --dump-default-config >/dev/null
+COPY --chown=agent:agent acp.patch.yml /home/agent/.dsh/profiles/acp/cordis.patch.yml
 WORKDIR /home/agent/workspace
 
 # IntelliJ starts `dsh --profile acp` through scripts/dsh-acp-sandbox.sh.

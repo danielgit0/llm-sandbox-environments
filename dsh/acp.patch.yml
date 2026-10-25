@@ -1,6 +1,10 @@
-# IntelliJ uses the hosted DeepSeek model exposed by LiteLLM. Set
-# DEEPSEEK_API_KEY in litellm/.env; change model to qwen-coder for local use.
+# DSH ACP's user-facing model is DeepSeek V4.1 Flash. The shipped ACP row
+# defaults to the internal deepseek-v4-flash ID; replace that row here.
 - id: agent-default-model
   config:
     provider: deepseek-official
-    model: deepseek
+    model: deepseek-flash
+- id: acp
+  config:
+    provider: deepseek-official
+    model: deepseek-flash

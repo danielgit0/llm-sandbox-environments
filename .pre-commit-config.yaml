@@ -57,7 +57,7 @@ repos:
       - id: codespell
         args:
           - --ignore-words-list=sbx,litellm,ollama,qwen,modelfile,trivy,hadolint,mcp,uv,dsh,deepseek
-        exclude: ^(litellm|dsh)/uv\.lock$
+        exclude: ^(litellm|dsh|flutter-mcp)/uv\.lock$
 
   # Local checks that depend on host tooling.
   - repo: local
@@ -90,6 +90,14 @@ repos:
         language: system
         entry: bash -c 'cd dsh && ../scripts/uv lock --check'
         files: ^dsh/(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+
+      # The host Flutter MCP bridge is a third uv project.
+      - id: flutter-mcp-lock-check
+        name: Check flutter-mcp uv.lock is current
+        language: system
+        entry: bash -c 'cd flutter-mcp && ../scripts/uv lock --check'
+        files: ^flutter-mcp/(pyproject\.toml|uv\.lock)$
         pass_filenames: false
 
       # Vulnerability/image audit is slow, networked, and currently fails on
