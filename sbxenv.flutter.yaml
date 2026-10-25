@@ -3,7 +3,7 @@ name: flutter-sandbox
 
 # Host Flutter MCP bridge: Flutter/Dart run on macOS, not in this sandbox.
 agent: dsh
-# Replace this with the absolute path to the Flutter project.
+# Placeholder; set the real path in sbxenv.flutter.local.yaml (gitignored).
 workspace: /absolute/path/to/flutter-app
 
 kits:

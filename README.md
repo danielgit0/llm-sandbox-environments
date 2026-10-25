@@ -342,6 +342,43 @@ sbx env run /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.yam
 The kit paths are relative to this env file. `workspace` is optional in the
 schema, but this environment needs it; there is no `--workspace` flag.
 
+### Keep the workspace path out of Git
+
+`sbx` has no patch command for an env file, but it merges multiple env files
+left to right. Keep the base file generic and put only the personal workspace
+in a gitignored override.
+
+```bash
+cp sbxenv.flutter.local.example.yaml sbxenv.flutter.local.yaml
+```
+
+Edit the copy:
+
+```yaml
+workspace: /Users/daniel/.../blue_collar_app
+```
+
+`sbxenv.flutter.local.yaml` is already ignored. Run both files:
+
+```bash
+sbx env plan \
+  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.yaml \
+  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.local.yaml
+sbx env run \
+  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.yaml \
+  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.local.yaml
+```
+
+Later files override earlier scalar values, so the override replaces only
+`workspace`. The base file still supplies `name`, kits, and env. If the
+sandbox already exists, remove it before changing its workspace:
+
+```bash
+sbx env rm --force \
+  ./sbxenv.flutter.yaml \
+  ./sbxenv.flutter.local.yaml
+```
+
 The sandbox name is `flutter-sandbox`.
 
 ### Verify from inside the sandbox

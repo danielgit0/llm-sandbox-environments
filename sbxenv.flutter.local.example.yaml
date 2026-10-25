@@ -1,0 +1,3 @@
+# Copy to sbxenv.flutter.local.yaml (gitignored) and set the absolute path.
+# Pass it after sbxenv.flutter.yaml; later files override earlier values.
+workspace: /Users/daniel/.../blue_collar_app

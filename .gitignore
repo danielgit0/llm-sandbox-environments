@@ -17,6 +17,7 @@ opencode.local.jsonc
 litellm/.venv/
 dsh/.venv/
 flutter-mcp/.venv/
+sbxenv.flutter.local.yaml
 .buildx/
 .uv-cache/
 .uv-python/
