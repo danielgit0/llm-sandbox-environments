@@ -56,8 +56,8 @@ repos:
     hooks:
       - id: codespell
         args:
-          - --ignore-words-list=sbx,litellm,ollama,qwen,modelfile,trivy,hadolint,mcp,uv
-        exclude: ^litellm/uv\.lock$
+          - --ignore-words-list=sbx,litellm,ollama,qwen,modelfile,trivy,hadolint,mcp,uv,dsh,deepseek
+        exclude: ^(litellm|dsh)/uv\.lock$
 
   # Local checks that depend on host tooling.
   - repo: local
@@ -82,6 +82,14 @@ repos:
         language: system
         entry: bash -c 'cd litellm && ../scripts/uv lock --check'
         files: ^litellm/(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+
+      # DSH is a second uv project; keep its lock current too.
+      - id: dsh-lock-check
+        name: Check dsh uv.lock is current
+        language: system
+        entry: bash -c 'cd dsh && ../scripts/uv lock --check'
+        files: ^dsh/(pyproject\.toml|uv\.lock)$
         pass_filenames: false
 
       # Vulnerability/image audit is slow, networked, and currently fails on

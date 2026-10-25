@@ -1,0 +1,18 @@
+[project]
+name = "dsh-sandbox"
+version = "0.0.0"
+description = "Pinned DeepSeek Harness workload for Docker Sandboxes"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "deepseek-harness-sdk==0.2.1rc2",
+]
+
+[tool.uv]
+package = false
+# Enforce the same uv version as the LiteLLM project.
+required-version = "==0.13.5"
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true

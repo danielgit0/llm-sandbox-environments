@@ -1,0 +1,26 @@
+schemaVersion: "1"
+name: dsh-sandbox
+
+# The v3 workload name is the last component of its OCI reference.
+agent: dsh
+workspace: ./dsh/workspace
+
+kits:
+  - ./dsh
+  - ./providers/litellm
+
+sandboxOptions:
+  cpus: 4
+  memory: 8g
+  skills: readonly
+
+ports:
+  - sandbox: 3000
+    host: 3000
+    hostIP: 127.0.0.1
+
+env:
+  # DSH routes model calls through the host-only LiteLLM gateway.
+  DEEPSEEK_BASE_URL: http://host.docker.internal:4000/v1
+  DEEPSEEK_API_KEY: not-needed
+  LITELLM_BASE_URL: http://host.docker.internal:4000/v1
