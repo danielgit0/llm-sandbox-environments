@@ -31,6 +31,8 @@ OpenCode (sandbox)
 - `mcps/<name>/` contains self-contained v3 mixins that install MCP binaries
   into the sandbox image.
 - `providers/litellm/kit.yaml` is the only model egress rule.
+- `dsh/` is an experimental v3 DeepSeek Harness workload; `sbxenv.dsh.yaml`
+  selects it. It shares LiteLLM and the egress mixin but has its own workspace.
 - `litellm/` is a uv project: `pyproject.toml`, `uv.lock`, `config.yaml`,
   `run.sh`.
 - `models/` holds the default 7B Modelfile and the base-model digest map.
@@ -86,6 +88,16 @@ Follow [mcps/README.md](mcps/README.md). In short: new `mcps/<name>/` with
 archive hashes; add the kit to `sbxenv.yaml`; register the binary in
 `workspace/opencode.json`.
 
+### DSH workload
+
+`dsh/` is a separate v3 workload selected by `sbxenv.dsh.yaml`. It uses the
+pinned uv image, installs `deepseek-harness-sdk` with `uv sync --frozen`, and
+runs `dsh web`. Keep it additive: do not change the OpenCode workload or
+workspace when iterating on DSH.
+
+The DSH web UI prints a one-time token URL. The sandbox publishes only
+`127.0.0.1:3000`; the agent's model traffic still goes through LiteLLM.
+
 ### Add or change a model
 
 The default local model is the stable tag `qwen-coder-local`, created by
@@ -119,6 +131,12 @@ cd litellm
 ../scripts/uv sync --frozen --no-dev
 ../scripts/uv run --frozen --no-dev litellm --version
 cd ..
+
+# DSH lock and environment resolve.
+cd dsh
+../scripts/uv lock --check
+cd ..
+sbx env plan ./sbxenv.dsh.yaml
 
 # Sandbox configuration resolves.
 sbx kit inspect \
@@ -164,6 +182,10 @@ docker buildx build --platform linux/amd64 \
   be installed. Re-check when LiteLLM relaxes the constraint.
 - **`docker.io/docker/sbx-kit-opencode:1.19.4` does not exist.** The pin is
   `1.18.33`.
+- **DSH is an experimental RC.** `deepseek-harness-sdk==0.2.1rc2` is a
+  pre-release with no security audit. The web profile logs optional activation
+  warnings for `dsh-host-directory-picker` and `libreoffice-kit`; the core UI
+  and agent still start.
 
 ## Style and hygiene
 

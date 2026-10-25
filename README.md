@@ -73,6 +73,7 @@ The OpenCode label is cosmetic; the actual base is whichever
 ├── .trivyignore.yaml           # scoped, expiring audit exceptions
 ├── .yamllint.yaml              # YAML style config for pre-commit
 ├── sbxenv.yaml                 # sandbox, kit list, LiteLLM endpoint
+├── sbxenv.dsh.yaml             # experimental DeepSeek Harness sandbox
 ├── SECURITY.md                 # pins, audit, accepted risks
 ├── litellm/
 │   ├── .python-version         # 3.12.15 for the uv project
@@ -99,6 +100,12 @@ The OpenCode label is cosmetic; the actual base is whichever
 │   ├── setup-ollama-model.sh   # pull base + create qwen-coder-local
 │   ├── uv                      # wrapper for the pinned uv
 │   └── verify-ollama-model.sh  # model manifest digest check
+├── dsh/                        # experimental DeepSeek Harness workload
+│   ├── kit.yaml                # v3 workload: dsh web
+│   ├── kit.Dockerfile          # uv image + Python 3.12 + DSH SDK
+│   ├── pyproject.toml          # deepseek-harness-sdk==0.2.1rc2
+│   ├── uv.lock                 # hash-locked DSH runtime wheel
+│   └── workspace/              # mounted DSH workspace
 └── workspace/
     ├── opencode.json           # LiteLLM provider + MCP registration
     └── opencode.example.jsonc  # commented samples for more models
@@ -185,6 +192,11 @@ rejects a field.
 - Ollama: 0.40.10
 - qwen2.5-coder digests: pinned in `models/ollama-model-digests.txt`
   (0.5b, 1.5b, 3b, 7b)
+- DSH SDK: 0.2.1rc2, locked in `dsh/uv.lock`; runtime wheel is
+  `deepseek-harness-runtime-bin==0.2.1rc2`
+- DSH uv builder:
+  `ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff`
+- DSH Python: 3.12.15 (`dsh/.python-version`)
 
 `SECURITY.md` lists the full digests and the audit procedure.
 
@@ -250,6 +262,35 @@ sbx env run ./sbxenv.yaml
 
 Inspect the plan before approving it. Kits, env, and secrets take effect when
 the sandbox is created; recreate it after changing them.
+
+## DeepSeek Harness workload (experimental)
+
+`sbxenv.dsh.yaml` runs the DSH web UI in a dedicated sandbox. This is a
+separate, experimental workload; the OpenCode setup above is unchanged.
+
+```bash
+sbx env plan ./sbxenv.dsh.yaml
+sbx env run ./sbxenv.dsh.yaml
+```
+
+Open the token URL after the sandbox starts. DSH writes it to
+`/home/agent/.dsh/web.log`; retrieve it with:
+
+```bash
+sbx exec dsh-sandbox cat /home/agent/.dsh/web.log
+```
+
+Replace the sandbox IP in the printed URL with `127.0.0.1:3000`, keeping the
+`?token=...` part.
+
+- `dsh/` is a v3 workload built from the pinned uv image. DSH is installed
+  with `uv sync --frozen`; pip is not used.
+- `dsh web` is the full web profile; the limited `sdk-minimal` profile is not
+  used.
+- Model calls go through LiteLLM, so the sandbox has no DeepSeek key and no
+  provider egress.
+- The web UI is published on host loopback only.
+- DSH is experimental and has no security audit; see [SECURITY.md](SECURITY.md).
 
 ## Models
 

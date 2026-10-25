@@ -33,6 +33,11 @@ vulnerabilities. `scripts/audit.sh` is the gate that checks that.
     `57dca26f51efc050112b733a65dea6f6c8e68da7a2946afd7c1eb8834d9eeb92`
 - qwen2.5-coder base models: digests pinned in `models/ollama-model-digests.txt`
   (0.5b test, 1.5b, 3b, 7b)
+- DSH SDK: 0.2.1rc2, locked in `dsh/uv.lock`; the lock also pins
+  `deepseek-harness-runtime-bin==0.2.1rc2` and its per-platform hashes
+- DSH uv builder:
+  `ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff`
+- DSH Python: 3.12.15 (`dsh/.python-version`)
 - hadolint (dev): `docker.io/hadolint/hadolint:v2.14.0@sha256:27086352fd5e1907ea2b934eb1023f217c5ae087992eb59fde121dce9c9ff21e`
 - Tested sandbox CLI: `sbx 0.48.0`
 
@@ -42,6 +47,15 @@ Run the gate from the repository root:
 
 ```bash
 scripts/audit.sh
+```
+
+The DSH spike image is built separately and can be scanned manually:
+
+```bash
+docker buildx build --platform linux/arm64 -f dsh/kit.Dockerfile \
+  -t local/dsh:audit dsh
+trivy image --pkg-types os --scanners vuln \
+  --severity HIGH,CRITICAL local/dsh:audit
 ```
 
 It runs:
@@ -89,6 +103,14 @@ that finding is recorded above and in the README Known issue.
   key instead.
 - **Host secrets live in `litellm/.env` or the invoking environment.** `.env`
   is gitignored and loaded by `run.sh`; it is never mounted into the sandbox.
+- **DSH is experimental and not security-audited.** The DSH web UI executes
+  model-generated code and commands. It is contained by the microVM, but the
+  microVM is the boundary; DSH's own SAFETY.md does not claim secure or
+  production-ready behavior. The web UI binds the sandbox interface and is
+  published on host loopback only; treat the token URL as a credential.
+- **DSH SDK is a pre-release.** `deepseek-harness-sdk==0.2.1rc2` is pinned
+  exactly; the web profile currently logs optional activation warnings for
+  `dsh-host-directory-picker` and `libreoffice-kit`.
 - **filelock CVE-2026-112940 (HIGH, fixed in 4.2.1).** LiteLLM 1.106.3
   requires `filelock<4.0`, so the fixed release cannot be installed without
   overriding an upstream constraint. The vulnerable `ReadWriteLock` path is
