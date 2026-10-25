@@ -316,7 +316,24 @@ Flutter/Dart run on macOS, not in the sandbox. The sandbox uses DSH for file
 edits and DeepSeek, `codebase-memory-mcp` locally, and a host MCP bridge for
 Flutter.
 
+Add the bridge settings to the existing `litellm/.env`:
+
+```dotenv
+FLUTTER_PROJECT=/Users/daniel/.../blue_collar_app
+FLUTTER_DART=/Users/daniel/development/flutter/bin/dart
+```
+
+`flutter-mcp/run.sh` loads that file and removes `DEEPSEEK_API_KEY` before
+starting Dart, so the bridge does not receive the model key. Do not add other
+secrets to this file.
+
 Start the bridge in one terminal:
+
+```bash
+flutter-mcp/run.sh
+```
+
+Inline variables still work for one-off runs:
 
 ```bash
 FLUTTER_PROJECT=/Users/daniel/.../blue_collar_app \
@@ -405,7 +422,8 @@ bridge; `000` means it cannot.
 ### MCP registration
 
 The ACP wrapper auto-detects `/opt/flutter-mcp/mcp.patch.yml` and passes it to
-DSH. The patch registers:
+DSH. It checks the bridge before starting and exits with the start command if
+it is not reachable. The patch registers:
 
 - `mcp__dart__*` via the host bridge;
 - `mcp__codebase_memory__*` via the sandbox binary.

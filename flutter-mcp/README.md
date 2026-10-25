@@ -21,4 +21,6 @@ pip. The bridge spawns `dart mcp-server` with `--cwd "$FLUTTER_PROJECT"`, so
 analyzer and runtime tools see the project.
 
 The project's pre-commit stays on the host; this bridge does not install it.
-Keep the bridge running while IntelliJ uses the Flutter ACP agent.
+Keep the bridge running while IntelliJ uses the Flutter ACP agent. The ACP
+wrapper checks the bridge before starting and exits with the start command if
+it is not reachable.

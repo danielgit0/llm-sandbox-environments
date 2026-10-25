@@ -3,6 +3,16 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Reuse the existing host env file. Never forward the LiteLLM key to the
+# Flutter/Dart MCP process.
+if [ -f ../litellm/.env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ../litellm/.env
+  set +a
+  unset DEEPSEEK_API_KEY
+fi
+
 : "${FLUTTER_PROJECT:?set FLUTTER_PROJECT to the absolute Flutter project path}"
 dart_bin="${FLUTTER_DART:-$(command -v dart || true)}"
 if [ -z "$dart_bin" ]; then
