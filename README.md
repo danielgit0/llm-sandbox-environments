@@ -1,14 +1,33 @@
-# OpenCode Docker Sandbox with MCP Servers
+# Sandboxed LLM Coding Environments with MCPs
 
-This project runs OpenCode in Docker Sandboxes with MCP servers installed into
-the sandbox image and a host-side LiteLLM gateway. The sandbox has exactly one
-model egress path: LiteLLM. Only hosted DeepSeek is enabled; local Qwen is
-not wired into LiteLLM or OpenCode.
+This repository is a template for reproducible Docker Sandbox environments
+that run coding agents against hosted or local LLMs. Each environment mounts
+one project workspace, installs its tools into the sandbox image, and keeps
+provider credentials and model egress on the host.
+
+It is designed to be extended:
+
+- **Models** are reached through a host-side LiteLLM gateway. The sandbox has
+  no provider key and exactly one model egress path. Hosted DeepSeek is active;
+  the local Qwen/Ollama scripts and model assets remain for experimentation.
+- **MCP servers** can run inside the sandbox as self-contained stdio binaries
+  or be bridged from the host over HTTP. `codebase-memory-mcp` runs in the
+  image; the Flutter/Dart MCP server runs on macOS behind `mcp-proxy`.
+- **Agents** can be OpenCode or DeepSeek Harness ACP in IntelliJ. They share
+  LiteLLM and the egress policy but use separate workspaces.
+
+| Environment | Agent | MCP mode |
+| --- | --- | --- |
+| `sbxenv.yaml` | OpenCode | in-sandbox `codebase-memory-mcp` |
+| `sbxenv.dsh.yaml` | DSH ACP / IntelliJ | none |
+| `sbxenv.flutter.yaml` | DSH ACP / IntelliJ | codebase-memory + host Flutter bridge |
 
 All runtime components are pinned by version plus digest or hash. See
 [SECURITY.md](SECURITY.md) for the pins, audit gate, and accepted risks. The
 upstream OpenCode workload image currently has an open finding; see
 [Known issue](#known-issue-opencode-workload-image).
+
+This repository was developed with the help of DeepSeek Harness.
 
 ## Architecture
 
