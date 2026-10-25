@@ -13,4 +13,6 @@ mkdir -p "$(dirname "$log")"
 
 # Keep the one-time token URL retrievable from inside the sandbox.
 exec > >(tee -a "$log") 2>&1
-exec dsh --profile web --host "$host" --port "$port" --no-open
+exec dsh --profile web --host "$host" --port "$port" --no-open \
+  --public-url "http://127.0.0.1:$port" \
+  --trusted-host "127.0.0.1:$port"

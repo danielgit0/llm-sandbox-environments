@@ -15,7 +15,7 @@ Experimental v3 workload that runs the DSH web UI in a Docker Sandbox.
   sbx exec dsh-sandbox cat /home/agent/.dsh/web.log
   ```
 
-  Replace the sandbox IP in that URL with `127.0.0.1:3000`, keeping the token.
+  Open the printed `127.0.0.1:3000` URL with its token.
 
 The web profile currently logs two optional activation warnings
 (`dsh-host-directory-picker` and `libreoffice-kit`). The core agent and UI

@@ -280,8 +280,7 @@ Open the token URL after the sandbox starts. DSH writes it to
 sbx exec dsh-sandbox cat /home/agent/.dsh/web.log
 ```
 
-Replace the sandbox IP in the printed URL with `127.0.0.1:3000`, keeping the
-`?token=...` part.
+Open the printed `127.0.0.1:3000` URL with its `?token=...` part.
 
 - `dsh/` is a v3 workload built from the pinned uv image. DSH is installed
   with `uv sync --frozen`; pip is not used.
