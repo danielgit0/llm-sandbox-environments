@@ -32,6 +32,7 @@ OpenCode (sandbox)
 - `flutter-mcp/` is the host-side stdio-to-HTTP bridge for Flutter/Dart MCP;
   `providers/flutter-mcp` allows the sandbox to reach it.
 - `providers/litellm/kit.yaml` is the only model egress rule.
+- `tools/openspec/` installs the pinned OpenSpec CLI into active sandboxes.
 - `dsh/` is an experimental v3 DeepSeek Harness workload; `sbxenv.dsh.yaml`
   selects it. It shares LiteLLM and the egress mixin but has its own workspace.
 - `litellm/` is a uv project: `pyproject.toml`, `uv.lock`, `config.yaml`,
@@ -70,6 +71,7 @@ OpenCode (sandbox)
 - Ollama **0.40.10** (inactive local assets).
 - Flutter **3.47.6** / Dart **3.13.5** on the host for the local Flutter bridge.
 - `mcp-proxy` **0.13.0** in `flutter-mcp/uv.lock`.
+- OpenSpec **1.15.0** (`@fission-ai/openspec`), Node >=20.19.
 - Trivy, hadolint, pre-commit.
 
 Run `scripts/install-uv.sh` once. Do not rely on the ambient `uv`; the wrapper
@@ -117,6 +119,13 @@ codebase-memory, LiteLLM, and the host Flutter egress. Set its `workspace` to
 the project path. The ACP wrapper auto-detects `/opt/flutter-mcp/mcp.patch.yml`
 and registers both MCP servers. Flutter/Dart and the project's pre-commit stay
 on the host; do not add Flutter hooks to this repo.
+
+### OpenSpec
+
+`tools/openspec` installs `@fission-ai/openspec@1.15.0` into the active
+sandboxes. It is a project CLI, not an MCP server. Run `openspec init` once in
+a project, then commit the generated `openspec/` tree and instructions.
+OpenSpec requires Node.js >=20.19; the DSH base provides Node 22.22.1.
 
 ### Add or change a model
 

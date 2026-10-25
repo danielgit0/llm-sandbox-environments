@@ -7,6 +7,7 @@ workspace: ./dsh/workspace
 
 kits:
   - ./dsh
+  - ./tools/openspec
   - ./providers/litellm
 
 sandboxOptions:

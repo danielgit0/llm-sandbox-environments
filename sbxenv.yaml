@@ -10,6 +10,7 @@ kits:
   # published on docker.io, so sbx env run would fail on it.
   - docker.io/docker/sbx-kit-opencode:1.18.33@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
   - ./mcps/codebase-memory-mcp
+  - ./tools/openspec
   # Single model egress path. The sandbox cannot reach Ollama or providers
   # directly; LiteLLM runs on the host and is the only allowed destination.
   - ./providers/litellm

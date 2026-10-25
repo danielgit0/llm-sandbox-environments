@@ -40,6 +40,9 @@ vulnerabilities. `scripts/audit.sh` is the gate that checks that.
 - DSH Python: 3.12.15 (`dsh/.python-version`)
 - Flutter: 3.47.6 / Dart 3.13.5 on the macOS host (`flutter-mcp`)
 - mcp-proxy: 0.13.0, locked in `flutter-mcp/uv.lock`
+- OpenSpec: 1.15.0 (`@fission-ai/openspec`, MIT); Node >=20.19
+- OpenSpec build stage:
+  `node:22.22.1-bookworm-slim@sha256:4f77a690f2f8946ab16fe1e791a3ac0667ae1c3575c3e4d0d4589e9ed5bfaf3d`
 - hadolint (dev): `docker.io/hadolint/hadolint:v2.14.0@sha256:27086352fd5e1907ea2b934eb1023f217c5ae087992eb59fde121dce9c9ff21e`
 - Tested sandbox CLI: `sbx 0.48.0`
 

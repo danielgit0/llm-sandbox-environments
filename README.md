@@ -22,6 +22,9 @@ It is designed to be extended:
 | `sbxenv.dsh.yaml` | DSH ACP / IntelliJ | none |
 | `sbxenv.flutter.yaml` | DSH ACP / IntelliJ | codebase-memory + host Flutter bridge |
 
+All active environments also install the pinned OpenSpec CLI for spec-driven
+development; it is a project tool, not an MCP server.
+
 All runtime components are pinned by version plus digest or hash. See
 [SECURITY.md](SECURITY.md) for the pins, audit gate, and accepted risks. The
 upstream OpenCode workload image currently has an open finding; see
@@ -107,6 +110,12 @@ the repository but are not referenced by the active configuration.
 │       ├── kit.Dockerfile      # pinned base + hardcoded release hashes
 │       ├── context.md          # instructions appended to the agent's AGENTS.md
 │       └── README.md           # upstream, pin, verification, update notes
+├── tools/
+│   └── openspec/               # pinned OpenSpec CLI for mounted projects
+│       ├── kit.yaml
+│       ├── kit.Dockerfile
+│       ├── context.md
+│       └── README.md
 ├── providers/
 │   ├── litellm/kit.yaml        # the only model egress rule
 │   └── flutter-mcp/            # localhost:3100 egress + ACP MCP patch
@@ -225,6 +234,7 @@ rejects a field.
   `ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff`
 - DSH Python: 3.12.15 (`dsh/.python-version`)
 - mcp-proxy: 0.13.0, locked in `flutter-mcp/uv.lock`
+- OpenSpec: 1.15.0 (`@fission-ai/openspec`), Node >=20.19
 - Flutter: 3.47.6 / Dart 3.13.5 on the host (`flutter-mcp`)
 
 `SECURITY.md` lists the full digests and the audit procedure.
@@ -471,6 +481,25 @@ For IntelliJ, use the ACP wrapper with:
 - iOS and Android builds/run on the host, where the SDKs and Xcode live.
 - The sandbox gets only the project workspace, LiteLLM, and the
   `localhost:3100` MCP endpoint.
+
+## OpenSpec
+
+Every active sandbox includes the pinned OpenSpec CLI:
+
+```bash
+openspec --version
+openspec init          # run once in a project
+openspec list
+```
+
+`openspec init` creates the project's `openspec/` tree and agent instructions;
+commit those files with the project. OpenSpec is not an MCP server and is not
+registered with OpenCode or DSH. The CLI runs inside the sandbox against the
+mounted workspace.
+
+The kit is `tools/openspec` and pins
+`@fission-ai/openspec@1.15.0`. It requires Node.js `>=20.19.0`; the DSH base
+already provides Node 22.22.1.
 
 ## Models
 
