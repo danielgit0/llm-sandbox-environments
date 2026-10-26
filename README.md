@@ -12,7 +12,7 @@ It is designed to be extended:
   the local Qwen/Ollama scripts and model assets remain for experimentation.
 - **MCP servers** can run inside the sandbox as self-contained stdio binaries
   or be bridged from the host over HTTP. `codebase-memory-mcp` runs in the
-  image; the Flutter/Dart MCP server runs on macOS behind `mcp-proxy`.
+  image; the Flutter project uses an in-sandbox Dart MCP server.
 - **Agents** can be OpenCode or DeepSeek Harness ACP in IntelliJ. They share
   LiteLLM and the egress policy but use separate workspaces.
 
@@ -20,7 +20,7 @@ It is designed to be extended:
 | --- | --- | --- |
 | `sbxenv.yaml` | OpenCode | in-sandbox `codebase-memory-mcp` |
 | `sbxenv.dsh.yaml` | DSH ACP / IntelliJ | none |
-| `sbxenv.flutter.yaml` | DSH ACP / IntelliJ | codebase-memory + host Flutter bridge |
+| `sbxenv.flutter.yaml` | DSH ACP / IntelliJ | codebase-memory + in-sandbox Dart MCP |
 | `sbxenv.java.yaml` | DSH ACP / IntelliJ | codebase-memory; GraalVM JDK 25 |
 
 All active environments also install the pinned OpenSpec CLI for spec-driven
@@ -119,18 +119,19 @@ the repository but are not referenced by the active configuration.
 │   │   ├── kit.Dockerfile
 │   │   ├── context.md
 │   │   └── README.md
-│   └── java/                   # GraalVM JDK 25 for Linux arm64
+│   ├── java/                   # GraalVM JDK 25 for Linux arm64
+│   │   ├── kit.yaml
+│   │   ├── kit.Dockerfile
+│   │   ├── context.md
+│   │   └── README.md
+│   └── dart/                   # Dart SDK 3.13.5 + Dart MCP
 │       ├── kit.yaml
 │       ├── kit.Dockerfile
+│       ├── mcp.patch.yml
 │       ├── context.md
 │       └── README.md
 ├── providers/
 │   ├── litellm/kit.yaml        # the only model egress rule
-│   ├── flutter-mcp/            # localhost:3100 egress + ACP MCP patch
-│   │   ├── kit.yaml
-│   │   ├── kit.Dockerfile
-│   │   ├── mcp.patch.yml
-│   │   └── README.md
 │   └── java-egress/            # Gradle/Maven egress
 │       └── kit.yaml
 ├── scripts/
@@ -141,10 +142,6 @@ the repository but are not referenced by the active configuration.
 │   ├── setup-ollama-model.sh   # pull base + create qwen-coder-local
 │   ├── uv                      # wrapper for the pinned uv
 │   └── verify-ollama-model.sh  # model manifest digest check
-├── flutter-mcp/                # host Flutter/Dart MCP HTTP bridge
-│   ├── pyproject.toml          # mcp-proxy==0.13.0
-│   ├── uv.lock                 # hash-locked bridge
-│   └── run.sh                  # 127.0.0.1:3100, dart mcp-server
 ├── dsh/                        # experimental DeepSeek Harness workload
 │   ├── kit.yaml                # v3 workload: DSH ACP
 │   ├── kit.Dockerfile          # uv image + Python 3.12 + DSH SDK
@@ -158,8 +155,8 @@ the repository but are not referenced by the active configuration.
 
 The sandbox cannot reach Ollama or `api.deepseek.com` directly. The default
 environment allows only `localhost:4000` (LiteLLM, through the proxy). The
-Flutter host-bridge environment also allows `localhost:3100` for its MCP
-bridge; no provider API is reachable from the sandbox.
+Flutter project environment has no host MCP bridge; Dart MCP runs in the
+sandbox.
 
 ## Add an MCP server
 
@@ -243,10 +240,10 @@ rejects a field.
 - DSH uv builder:
   `ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff`
 - DSH Python: 3.12.15 (`dsh/.python-version`)
-- mcp-proxy: 0.13.0, locked in `flutter-mcp/uv.lock`
 - OpenSpec: 1.15.0 (`@fission-ai/openspec`), Node >=20.19
 - GraalVM Community JDK: 25.0.1 (Linux arm64 archive)
-- Flutter: 3.47.6 / Dart 3.13.5 on the host (`flutter-mcp`)
+- Dart: 3.13.5 and `dart_mcp_server` 1.2.1 in the sandbox
+- Flutter SDK: 3.47.6 on the host for Flutter commands
 
 `SECURITY.md` lists the full digests and the audit procedure.
 
@@ -350,132 +347,32 @@ needed and runs `dsh --profile acp` inside it over stdio.
   peers). ACP does not depend on those packages.
 - DSH is experimental and has no security audit; see [SECURITY.md](SECURITY.md).
 
-## Flutter/Dart workload (local host bridge)
+## Flutter project with in-sandbox Dart MCP
 
-Flutter/Dart run on macOS, not in the sandbox. The sandbox uses DSH for file
-edits and DeepSeek, `codebase-memory-mcp` locally, and a host MCP bridge for
-Flutter.
+The Flutter SDK and Flutter builds stay on macOS. The sandbox contains Dart
+3.13.5 and the JIT `dart_mcp_server` package, so the Dart MCP tools run inside
+the sandbox without a host bridge.
 
-Add the bridge settings to the existing `litellm/.env`:
-
-```dotenv
-FLUTTER_PROJECT=/path/to/flutter-app
-FLUTTER_DART=/path/to/flutter/bin/dart
-```
-
-`flutter-mcp/run.sh` loads that file and removes `DEEPSEEK_API_KEY` before
-starting Dart, so the bridge does not receive the model key. Do not add other
-secrets to this file.
-
-Start the bridge in one terminal:
-
-```bash
-flutter-mcp/run.sh
-```
-
-Inline variables still work for one-off runs:
-
-```bash
-FLUTTER_PROJECT=/path/to/flutter-app \
-FLUTTER_DART=/path/to/flutter/bin/dart \
-flutter-mcp/run.sh
-```
-
-It listens on `127.0.0.1:3100`; `/mcp` is the Streamable HTTP endpoint.
-
-Set the Flutter project path in `sbxenv.flutter.yaml`:
-
-```yaml
-workspace: /path/to/flutter-app
-```
-
-Then run the env file by absolute path from anywhere:
-
-```bash
-sbx env plan /path/to/opencode-sandbox/sbxenv.flutter.yaml
-sbx env run /path/to/opencode-sandbox/sbxenv.flutter.yaml
-```
-
-The kit paths are relative to this env file. `workspace` is optional in the
-schema, but this environment needs it; there is no `--workspace` flag.
-
-### Keep the workspace path out of Git
-
-`sbx` has no patch command for an env file, but it merges multiple env files
-left to right. Keep the base file generic and put only the personal workspace
-in a gitignored override.
+Set the Flutter project path and run the environment:
 
 ```bash
 cp sbxenv.flutter.local.example.yaml sbxenv.flutter.local.yaml
-```
+# edit workspace to /path/to/flutter-app
 
-Edit the copy:
-
-```yaml
-workspace: /path/to/flutter-app
-```
-
-`sbxenv.flutter.local.yaml` is already ignored. Run both files:
-
-```bash
 sbx env plan \
   /path/to/opencode-sandbox/sbxenv.flutter.yaml \
   /path/to/opencode-sandbox/sbxenv.flutter.local.yaml
-sbx env run \
+sbx env run --detach \
   /path/to/opencode-sandbox/sbxenv.flutter.yaml \
   /path/to/opencode-sandbox/sbxenv.flutter.local.yaml
 ```
 
-Later files override earlier scalar values, so the override replaces only
-`workspace`. The base file still supplies `name`, kits, and env. If the
-sandbox already exists, remove it before changing its workspace:
-
-```bash
-sbx env rm --force \
-  ./sbxenv.flutter.yaml \
-  ./sbxenv.flutter.local.yaml
-```
-
-The sandbox name is `flutter-sandbox`.
-
-### Verify from inside the sandbox
-
-```bash
-sbx exec -it flutter-sandbox bash
-```
-
-Inside:
-
-```bash
-pwd
-ls
-command -v codebase-memory-mcp
-codebase-memory-mcp --version
-curl -s -o /dev/null -w '%{http_code}\n' http://host.docker.internal:3100/mcp
-exit
-```
-
-`flutter` and `dart` are intentionally **not** in this sandbox; they run on
-the host. An HTTP status other than `000` proves the sandbox can reach the
-bridge; `000` means it cannot.
-
-### MCP registration
-
-The ACP wrapper auto-detects `/opt/flutter-mcp/mcp.patch.yml` and passes it to
-DSH. It checks the bridge before starting and exits with the start command if
-it is not reachable. The patch registers:
-
-- `mcp__dart__*` via the host bridge;
-- `mcp__codebase_memory__*` via the sandbox binary.
-
-No IntelliJ custom MCP pass-through is needed.
-
-For IntelliJ, use the ACP wrapper with:
+The sandbox name is `flutter-sandbox`. In IntelliJ:
 
 ```json
 {
   "agent_servers": {
-    "Flutter Sandbox": {
+    "DSH Flutter Sandbox": {
       "command": "/path/to/opencode-sandbox/scripts/dsh-acp-sandbox.sh",
       "args": [],
       "env": { "DSH_SANDBOX_NAME": "flutter-sandbox" }
@@ -484,14 +381,33 @@ For IntelliJ, use the ACP wrapper with:
 }
 ```
 
-### Tradeoffs
+### Verify from inside the sandbox
 
-- Flutter/Dart and the project pre-commit execute on the host, outside the
-  sandbox. The sandbox agent can call them through MCP; treat the bridge as a
-  trusted host capability.
-- iOS and Android builds/run on the host, where the SDKs and Xcode live.
-- The sandbox gets only the project workspace, LiteLLM, and the
-  `localhost:3100` MCP endpoint.
+```bash
+sbx exec -it flutter-sandbox bash
+```
+
+```bash
+dart --version
+command -v dart-mcp-server
+command -v codebase-memory-mcp
+exit
+```
+
+Expected: Dart 3.13.5, `/usr/local/bin/dart-mcp-server`, and
+`/usr/local/bin/codebase-memory-mcp`.
+
+The ACP wrapper auto-detects `/opt/dart-mcp/mcp.patch.yml` and registers:
+
+- `mcp__dart__*` from the sandbox Dart MCP server;
+- `mcp__codebase_memory__*` from the sandbox binary.
+
+### Limits
+
+This is Dart-only MCP support. The sandbox does not include Flutter's Linux
+SDK, so `flutter analyze`, `flutter test`, `flutter build`, and iOS/Android
+tooling remain on the host. Flutter's Linux SDK is x86_64-only; running full
+Flutter inside this arm64 sandbox would require an amd64 environment.
 
 ## OpenSpec
 

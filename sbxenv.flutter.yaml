@@ -9,9 +9,9 @@ workspace: /absolute/path/to/flutter-app
 kits:
   - ./dsh
   - ./tools/openspec
+  - ./tools/dart
   - ./mcps/codebase-memory-mcp
   - ./providers/litellm
-  - ./providers/flutter-mcp
 
 sandboxOptions:
   cpus: 4

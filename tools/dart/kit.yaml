@@ -1,0 +1,21 @@
+# syntax=docker/sandbox-kit:3
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/sandbox-kit-spec/main/schema/kit.schema.json
+schemaVersion: "3"
+kind: mixin
+displayName: Dart MCP
+description: Pinned Dart SDK 3.13.5 and dart_mcp_server 1.2.1 for the sandbox.
+sourceUrl: https://dart.dev
+licenses:
+  - BSD-3-Clause
+dockerfile: ./kit.Dockerfile
+
+args:
+  version:
+    default: "3.13.5"
+    pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+    buildArg: DART_VERSION
+
+capabilities:
+  - type: com.docker.sandbox/agent-context@1
+    config:
+      contentFile: ./context.md

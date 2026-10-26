@@ -38,8 +38,10 @@ vulnerabilities. `scripts/audit.sh` is the gate that checks that.
 - DSH uv builder:
   `ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff`
 - DSH Python: 3.12.15 (`dsh/.python-version`)
-- Flutter: 3.47.6 / Dart 3.13.5 on the macOS host (`flutter-mcp`)
-- mcp-proxy: 0.13.0, locked in `flutter-mcp/uv.lock`
+- Flutter: 3.47.6 on the macOS host for Flutter commands
+- Dart: 3.13.5, Linux arm64 archive SHA-256
+  `19a731647c3ed55058ee46dde00330150e6a8729bb6121b4a31e86084c8a3e6d`
+- dart_mcp_server: 1.2.1, activated in the sandbox image
 - OpenSpec: 1.15.0 (`@fission-ai/openspec`, MIT); Node >=20.19
 - OpenSpec build stage:
   `node:22.22.1-bookworm-slim@sha256:4f77a690f2f8946ab16fe1e791a3ac0667ae1c3575c3e4d0d4589e9ed5bfaf3d`
@@ -118,12 +120,9 @@ that finding is recorded above and in the README Known issue.
 - **DSH ACP defaults to hosted DeepSeek.** Prompts routed to `deepseek` leave
   the host through LiteLLM and are billed by the provider. `DEEPSEEK_API_KEY`
   stays in `litellm/.env`; the sandbox receives only `not-needed`.
-- **Flutter host bridge is a deliberate host capability.** Flutter's Linux
-  SDK is x86_64-only, so `flutter-mcp` runs Flutter/Dart MCP on macOS and
-  allows the Flutter sandbox to reach `localhost:3100`. Flutter commands and
-  the project pre-commit execute on the host, outside the microVM; the sandbox
-  can invoke them through MCP. Pin `mcp-proxy==0.13.0` in
-  `flutter-mcp/uv.lock` and keep the bridge on `127.0.0.1`.
+- **Dart MCP is sandbox-local.** The Flutter sandbox contains Dart 3.13.5 and
+  `dart_mcp_server` 1.2.1; it does not contain the Flutter SDK. Flutter
+  commands, Flutter widget analysis, and iOS/Android builds stay on the host.
 - **DSH SDK is a pre-release.** `deepseek-harness-sdk==0.2.1rc2` is pinned
   exactly. Its web profile has missing directory-picker peers; the ACP profile
   is used instead.

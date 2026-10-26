@@ -29,10 +29,9 @@ OpenCode (sandbox)
   servers with OpenCode.
 - `mcps/<name>/` contains self-contained v3 mixins that install MCP binaries
   into the sandbox image.
-- `flutter-mcp/` is the host-side stdio-to-HTTP bridge for Flutter/Dart MCP;
-  `providers/flutter-mcp` allows the sandbox to reach it.
 - `providers/litellm/kit.yaml` is the only model egress rule.
 - `tools/openspec/` installs the pinned OpenSpec CLI into active sandboxes.
+- `tools/dart/` installs Dart 3.13.5 and the in-sandbox Dart MCP server.
 - `tools/java/` installs GraalVM JDK 25.0.1 into the Quarkus sandbox;
   `providers/java-egress` allows Gradle/Maven egress.
 - `dsh/` is an experimental v3 DeepSeek Harness workload; `sbxenv.dsh.yaml`
@@ -53,9 +52,8 @@ OpenCode (sandbox)
   scans, lower severities, or add broad `.trivyignore.yaml` entries. An
   exception needs an exact path, a statement, and an expiry.
 - **Keep the sandbox egress minimal.** The default sandbox may reach only
-  `localhost:4000` (LiteLLM). The Flutter host-bridge environment additionally
-  allows `localhost:3100` for the MCP bridge. Do not add Ollama or provider
-  APIs to the sandbox; add providers behind LiteLLM instead.
+  `localhost:4000` (LiteLLM). Do not add Ollama or provider APIs to the
+  sandbox; add providers behind LiteLLM instead.
 - **Keep keys off the sandbox.** Provider keys stay in LiteLLM's host
   environment. Never put keys in YAML, JSON, Dockerfiles, or `uv.lock`.
 - **Keep MCP registration in `workspace/opencode.json`.** These servers are
@@ -71,8 +69,8 @@ OpenCode (sandbox)
 - Python **3.12.15** (`litellm/.python-version`).
 - `sbx` 0.48.0 tested.
 - Ollama **0.40.10** (inactive local assets).
-- Flutter **3.47.6** / Dart **3.13.5** on the host for the local Flutter bridge.
-- `mcp-proxy` **0.13.0** in `flutter-mcp/uv.lock`.
+- Flutter **3.47.6** on the host for Flutter commands.
+- Dart **3.13.5** and `dart_mcp_server` **1.2.1** in the Flutter sandbox.
 - OpenSpec **1.15.0** (`@fission-ai/openspec`), Node >=20.19.
 - GraalVM Community JDK **25.0.1** for the local Quarkus sandbox.
 - Trivy, hadolint, pre-commit.
@@ -110,18 +108,18 @@ The agent's model traffic still goes through LiteLLM. DSH's `deepseek-*`
 model IDs are mapped to hosted LiteLLM aliases; `DEEPSEEK_API_KEY` belongs in
 `litellm/.env`. The SDK web profile is not used; it is incomplete in 0.2.1rc2.
 
-### Flutter workload (local host bridge)
+### Flutter workload (in-sandbox Dart MCP)
 
-Flutter/Dart run on the macOS host, not in the sandbox. `flutter-mcp/run.sh`
-starts `mcp-proxy` on `127.0.0.1:3100` and spawns `dart mcp-server` with the
-project as cwd. `providers/flutter-mcp` allows `localhost:3100` from the
-sandbox and installs the ACP MCP patch.
+Flutter/Dart commands and builds stay on the macOS host because Flutter has no
+Linux arm64 SDK. The sandbox includes Dart 3.13.5 and the JIT
+`dart_mcp_server` package, so Dart MCP tools run inside the sandbox.
 
-`sbxenv.flutter.yaml` is the local environment: DSH,
-codebase-memory, LiteLLM, and the host Flutter egress. Set its `workspace` to
-the project path. The ACP wrapper auto-detects `/opt/flutter-mcp/mcp.patch.yml`
-and registers both MCP servers. Flutter/Dart and the project's pre-commit stay
-on the host; do not add Flutter hooks to this repo.
+`sbxenv.flutter.yaml` is the local environment: DSH, codebase-memory,
+OpenSpec, Dart MCP, and LiteLLM. Set its `workspace` in the gitignored
+`sbxenv.flutter.local.yaml`, then run both env files. The ACP wrapper
+auto-detects `/opt/dart-mcp/mcp.patch.yml` and registers the Dart and
+codebase-memory servers. Flutter commands, iOS/Android builds, and the
+project pre-commit stay on the host.
 
 ### OpenSpec
 
@@ -180,7 +178,7 @@ cd dsh
 cd ..
 sbx env plan ./sbxenv.dsh.yaml
 
-# Local Flutter host-bridge environment; set workspace first.
+# Local Flutter environment with in-sandbox Dart MCP; set workspace first.
 sbx env plan ./sbxenv.flutter.yaml
 
 # Local Java/Quarkus environment; set workspace first.
@@ -231,8 +229,8 @@ docker buildx build --platform linux/amd64 \
 - **`docker.io/docker/sbx-kit-opencode:1.19.4` does not exist.** The pin is
   `1.18.33`.
 - **Flutter runs on the host by design.** Flutter's Linux SDK is x86_64-only,
-  so the local setup uses the host MCP bridge. iOS/Android SDKs and the project
-  pre-commit remain on the host.
+  so Flutter commands, widget analysis, and iOS/Android SDKs remain on the
+  host. Dart MCP runs in the sandbox.
 - **DSH is an experimental RC.** `deepseek-harness-sdk==0.2.1rc2` is a
   pre-release with no security audit. Its web profile has missing
   directory-picker peers in this wheel; use the ACP profile for IntelliJ.

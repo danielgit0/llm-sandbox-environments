@@ -1,0 +1,9 @@
+- insert:
+    - id: dart-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: dart
+        transport: stdio
+        command: /usr/local/bin/dart-mcp-server
+        args: []
+        failOnStartupError: true
