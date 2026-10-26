@@ -21,6 +21,7 @@ It is designed to be extended:
 | `sbxenv.yaml` | OpenCode | in-sandbox `codebase-memory-mcp` |
 | `sbxenv.dsh.yaml` | DSH ACP / IntelliJ | none |
 | `sbxenv.flutter.yaml` | DSH ACP / IntelliJ | codebase-memory + host Flutter bridge |
+| `sbxenv.java.yaml` | DSH ACP / IntelliJ | codebase-memory; GraalVM JDK 25 |
 
 All active environments also install the pinned OpenSpec CLI for spec-driven
 development; it is a project tool, not an MCP server.
@@ -93,6 +94,8 @@ the repository but are not referenced by the active configuration.
 ├── sbxenv.yaml                 # sandbox, kit list, LiteLLM endpoint
 ├── sbxenv.dsh.yaml             # experimental DeepSeek Harness sandbox
 ├── sbxenv.flutter.yaml         # local Flutter host-MCP environment
+├── sbxenv.java.yaml            # local Quarkus/GraalVM environment
+├── sbxenv.java.local.example.yaml # gitignored project path template
 ├── SECURITY.md                 # pins, audit, accepted risks
 ├── litellm/
 │   ├── .python-version         # 3.12.15 for the uv project
@@ -111,18 +114,25 @@ the repository but are not referenced by the active configuration.
 │       ├── context.md          # instructions appended to the agent's AGENTS.md
 │       └── README.md           # upstream, pin, verification, update notes
 ├── tools/
-│   └── openspec/               # pinned OpenSpec CLI for mounted projects
+│   ├── openspec/               # pinned OpenSpec CLI for mounted projects
+│   │   ├── kit.yaml
+│   │   ├── kit.Dockerfile
+│   │   ├── context.md
+│   │   └── README.md
+│   └── java/                   # GraalVM JDK 25 for Linux arm64
 │       ├── kit.yaml
 │       ├── kit.Dockerfile
 │       ├── context.md
 │       └── README.md
 ├── providers/
 │   ├── litellm/kit.yaml        # the only model egress rule
-│   └── flutter-mcp/            # localhost:3100 egress + ACP MCP patch
-│       ├── kit.yaml
-│       ├── kit.Dockerfile
-│       ├── mcp.patch.yml
-│       └── README.md
+│   ├── flutter-mcp/            # localhost:3100 egress + ACP MCP patch
+│   │   ├── kit.yaml
+│   │   ├── kit.Dockerfile
+│   │   ├── mcp.patch.yml
+│   │   └── README.md
+│   └── java-egress/            # Gradle/Maven egress
+│       └── kit.yaml
 ├── scripts/
 │   ├── audit.sh                # trivy vulnerability gate
 │   ├── check-jsonc.py          # JSONC validator for opencode.example.jsonc
@@ -235,6 +245,7 @@ rejects a field.
 - DSH Python: 3.12.15 (`dsh/.python-version`)
 - mcp-proxy: 0.13.0, locked in `flutter-mcp/uv.lock`
 - OpenSpec: 1.15.0 (`@fission-ai/openspec`), Node >=20.19
+- GraalVM Community JDK: 25.0.1 (Linux arm64 archive)
 - Flutter: 3.47.6 / Dart 3.13.5 on the host (`flutter-mcp`)
 
 `SECURITY.md` lists the full digests and the audit procedure.
@@ -500,6 +511,51 @@ mounted workspace.
 The kit is `tools/openspec` and pins
 `@fission-ai/openspec@1.15.0`. It requires Node.js `>=20.19.0`; the DSH base
 already provides Node 22.22.1.
+
+## Java / Quarkus
+
+The Java environment uses the pinned GraalVM Community JDK 25.0.1 and the
+project's Gradle wrapper.
+
+```bash
+cp sbxenv.java.local.example.yaml sbxenv.java.local.yaml
+# edit the absolute workspace path
+
+sbx env plan \
+  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.java.yaml \
+  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.java.local.yaml
+sbx env run --detach \
+  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.java.yaml \
+  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.java.local.yaml
+```
+
+Sandbox name: `quarkus-sandbox`. In IntelliJ, set:
+
+```json
+"env": { "DSH_SANDBOX_NAME": "quarkus-sandbox" }
+```
+
+Verify inside:
+
+```bash
+sbx exec -it quarkus-sandbox bash
+java -version
+cd /path/to/project
+./gradlew --version
+```
+
+The JDK is at `/opt/graalvm`, with `JAVA_HOME` set. GraalVM's native-image
+tooling is present but not required. `providers/java-egress` allows Gradle
+distribution downloads, Maven Central, the Gradle Plugin Portal, and Google
+Maven; add private repositories explicitly if the project needs them.
+
+The project's pre-commit is not installed or duplicated here. Quarkus dev
+server ports are not published by default; add a `ports:` entry if you need
+`localhost:8080`.
+
+Testcontainers/Podman integration tests are not wired into the sandbox. Run
+those manually on the host with Podman; the sandbox is for compilation,
+analysis, and unit tests.
 
 ## Models
 

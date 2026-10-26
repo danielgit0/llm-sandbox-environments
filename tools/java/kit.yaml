@@ -1,0 +1,21 @@
+# syntax=docker/sandbox-kit:3
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/sandbox-kit-spec/main/schema/kit.schema.json
+schemaVersion: "3"
+kind: mixin
+displayName: GraalVM JDK 25
+description: Pinned GraalVM Community JDK 25.0.1 for Linux arm64 sandboxes.
+sourceUrl: https://github.com/graalvm/graalvm-ce-builds
+licenses:
+  - GPL-2.0-only
+dockerfile: ./kit.Dockerfile
+
+args:
+  version:
+    default: "25.0.1"
+    pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+    buildArg: GRAALVM_VERSION
+
+capabilities:
+  - type: com.docker.sandbox/agent-context@1
+    config:
+      contentFile: ./context.md

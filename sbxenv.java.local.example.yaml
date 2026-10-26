@@ -1,0 +1,2 @@
+# Copy to sbxenv.java.local.yaml (gitignored) and set the absolute path.
+workspace: /path/to/workspace

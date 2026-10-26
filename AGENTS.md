@@ -33,6 +33,8 @@ OpenCode (sandbox)
   `providers/flutter-mcp` allows the sandbox to reach it.
 - `providers/litellm/kit.yaml` is the only model egress rule.
 - `tools/openspec/` installs the pinned OpenSpec CLI into active sandboxes.
+- `tools/java/` installs GraalVM JDK 25.0.1 into the Quarkus sandbox;
+  `providers/java-egress` allows Gradle/Maven egress.
 - `dsh/` is an experimental v3 DeepSeek Harness workload; `sbxenv.dsh.yaml`
   selects it. It shares LiteLLM and the egress mixin but has its own workspace.
 - `litellm/` is a uv project: `pyproject.toml`, `uv.lock`, `config.yaml`,
@@ -72,6 +74,7 @@ OpenCode (sandbox)
 - Flutter **3.47.6** / Dart **3.13.5** on the host for the local Flutter bridge.
 - `mcp-proxy` **0.13.0** in `flutter-mcp/uv.lock`.
 - OpenSpec **1.15.0** (`@fission-ai/openspec`), Node >=20.19.
+- GraalVM Community JDK **25.0.1** for the local Quarkus sandbox.
 - Trivy, hadolint, pre-commit.
 
 Run `scripts/install-uv.sh` once. Do not rely on the ambient `uv`; the wrapper
@@ -127,6 +130,19 @@ sandboxes. It is a project CLI, not an MCP server. Run `openspec init` once in
 a project, then commit the generated `openspec/` tree and instructions.
 OpenSpec requires Node.js >=20.19; the DSH base provides Node 22.22.1.
 
+### Java / Quarkus
+
+`sbxenv.java.yaml` is the local Quarkus environment: DSH, GraalVM JDK 25,
+OpenSpec, codebase-memory, LiteLLM, and Java/Gradle egress. Set the workspace
+in the gitignored `sbxenv.java.local.yaml`, then run both env files.
+
+The project's Gradle wrapper is authoritative; no Gradle distribution is
+baked into the image. `providers/java-egress` allows Gradle, Maven Central, the
+Gradle Plugin Portal, and Google Maven. The JDK is Linux arm64 only. Native
+image builds are not part of the normal workflow. Testcontainers/Podman
+integration tests stay on the host. Do not add the project's pre-commit or
+hooks to this repo.
+
 ### Add or change a model
 
 The default is hosted DeepSeek through LiteLLM. Set `DEEPSEEK_API_KEY` in
@@ -166,6 +182,9 @@ sbx env plan ./sbxenv.dsh.yaml
 
 # Local Flutter host-bridge environment; set workspace first.
 sbx env plan ./sbxenv.flutter.yaml
+
+# Local Java/Quarkus environment; set workspace first.
+sbx env plan ./sbxenv.java.yaml
 
 # Sandbox configuration resolves.
 sbx kit inspect \

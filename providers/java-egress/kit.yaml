@@ -1,0 +1,19 @@
+# syntax=docker/sandbox-kit:3
+# yaml-language-server: $schema=https://raw.githubusercontent.com/docker/sandbox-kit-spec/main/schema/kit.schema.json
+schemaVersion: "3"
+kind: mixin
+displayName: Java/Gradle egress
+description: Allows Gradle distributions and Maven/Gradle repositories.
+capabilities:
+  - type: com.docker.sandbox/network-policy@1
+    config:
+      runtime:
+        allow:
+          - services.gradle.org:443
+          - downloads.gradle.org:443
+          - repo.maven.apache.org:443
+          - repo1.maven.org:443
+          - plugins.gradle.org:443
+          - plugins-artifacts.gradle.org:443
+          - maven.google.com:443
+          - dl.google.com:443
