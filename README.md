@@ -329,7 +329,7 @@ Configure IntelliJ AI Assistant's ACP agents in `~/.jetbrains/acp.json`:
 {
   "agent_servers": {
     "DSH Sandbox": {
-      "command": "/Users/daniel/Documents/projects/opencode-sandbox/scripts/dsh-acp-sandbox.sh",
+      "command": "/Users/example/Documents/projects/opencode-sandbox/scripts/dsh-acp-sandbox.sh",
       "args": []
     }
   }
@@ -359,8 +359,8 @@ Flutter.
 Add the bridge settings to the existing `litellm/.env`:
 
 ```dotenv
-FLUTTER_PROJECT=/Users/daniel/.../blue_collar_app
-FLUTTER_DART=/Users/daniel/development/flutter/bin/dart
+FLUTTER_PROJECT=/Users/example/flutter_app
+FLUTTER_DART=/Users/example/flutter/bin/dart
 ```
 
 `flutter-mcp/run.sh` loads that file and removes `DEEPSEEK_API_KEY` before
@@ -376,8 +376,8 @@ flutter-mcp/run.sh
 Inline variables still work for one-off runs:
 
 ```bash
-FLUTTER_PROJECT=/Users/daniel/.../blue_collar_app \
-FLUTTER_DART=/Users/daniel/development/flutter/bin/dart \
+FLUTTER_PROJECT=/Users/example/flutter_app \
+FLUTTER_DART=/Users/example/flutter/bin/dart \
 flutter-mcp/run.sh
 ```
 
@@ -386,14 +386,14 @@ It listens on `127.0.0.1:3100`; `/mcp` is the Streamable HTTP endpoint.
 Set the Flutter project path in `sbxenv.flutter.yaml`:
 
 ```yaml
-workspace: /Users/daniel/.../blue_collar_app
+workspace: /Users/example/flutter_app
 ```
 
 Then run the env file by absolute path from anywhere:
 
 ```bash
-sbx env plan /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.yaml
-sbx env run /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.yaml
+sbx env plan /Users/example/Documents/projects/opencode-sandbox/sbxenv.flutter.yaml
+sbx env run /Users/example/Documents/projects/opencode-sandbox/sbxenv.flutter.yaml
 ```
 
 The kit paths are relative to this env file. `workspace` is optional in the
@@ -412,18 +412,18 @@ cp sbxenv.flutter.local.example.yaml sbxenv.flutter.local.yaml
 Edit the copy:
 
 ```yaml
-workspace: /Users/daniel/.../blue_collar_app
+workspace: /Users/example/flutter_app
 ```
 
 `sbxenv.flutter.local.yaml` is already ignored. Run both files:
 
 ```bash
 sbx env plan \
-  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.yaml \
-  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.local.yaml
+  /Users/example/Documents/projects/opencode-sandbox/sbxenv.flutter.yaml \
+  /Users/example/Documents/projects/opencode-sandbox/sbxenv.flutter.local.yaml
 sbx env run \
-  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.yaml \
-  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.flutter.local.yaml
+  /Users/example/Documents/projects/opencode-sandbox/sbxenv.flutter.yaml \
+  /Users/example/Documents/projects/opencode-sandbox/sbxenv.flutter.local.yaml
 ```
 
 Later files override earlier scalar values, so the override replaces only
@@ -476,7 +476,7 @@ For IntelliJ, use the ACP wrapper with:
 {
   "agent_servers": {
     "Flutter Sandbox": {
-      "command": "/Users/daniel/Documents/projects/opencode-sandbox/scripts/dsh-acp-sandbox.sh",
+      "command": "/Users/example/Documents/projects/opencode-sandbox/scripts/dsh-acp-sandbox.sh",
       "args": [],
       "env": { "DSH_SANDBOX_NAME": "flutter-sandbox" }
     }
@@ -522,11 +522,11 @@ cp sbxenv.java.local.example.yaml sbxenv.java.local.yaml
 # edit the absolute workspace path
 
 sbx env plan \
-  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.java.yaml \
-  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.java.local.yaml
+  /Users/example/Documents/projects/opencode-sandbox/sbxenv.java.yaml \
+  /Users/example/Documents/projects/opencode-sandbox/sbxenv.java.local.yaml
 sbx env run --detach \
-  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.java.yaml \
-  /Users/daniel/Documents/projects/opencode-sandbox/sbxenv.java.local.yaml
+  /Users/example/Documents/projects/opencode-sandbox/sbxenv.java.yaml \
+  /Users/example/Documents/projects/opencode-sandbox/sbxenv.java.local.yaml
 ```
 
 Sandbox name: `quarkus-sandbox`. In IntelliJ, set:
