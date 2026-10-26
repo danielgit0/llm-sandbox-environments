@@ -1,0 +1,20 @@
+schemaVersion: "1"
+name: deepseek-sandbox
+
+# Plain DSH/DeepSeek sandbox: no project tooling or MCP servers.
+agent: dsh
+workspace: ./dsh/workspace
+
+kits:
+  - ./dsh
+  - ./providers/litellm
+
+sandboxOptions:
+  cpus: 4
+  memory: 8g
+  skills: readonly
+
+env:
+  DEEPSEEK_BASE_URL: http://host.docker.internal:4000/v1
+  DEEPSEEK_API_KEY: not-needed
+  LITELLM_BASE_URL: http://host.docker.internal:4000/v1

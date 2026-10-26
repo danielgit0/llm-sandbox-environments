@@ -35,7 +35,9 @@ OpenCode (sandbox)
 - `tools/java/` installs GraalVM JDK 25.0.1 into the Quarkus sandbox;
   `providers/java-egress` allows Gradle/Maven egress.
 - `dsh/` is an experimental v3 DeepSeek Harness workload; `sbxenv.dsh.yaml`
-  selects it. It shares LiteLLM and the egress mixin but has its own workspace.
+  selects it. `sbxenv.deepseek.yaml` is the plain no-MCP chat variant. It
+  shares LiteLLM and the egress mixin but has its own workspace. Use the
+  gitignored `sbxenv.deepseek.local.yaml` to mount a specific folder.
 - `litellm/` is a uv project: `pyproject.toml`, `uv.lock`, `config.yaml`,
   `run.sh`.
 - `models/` holds inactive local Qwen assets.
@@ -60,6 +62,9 @@ OpenCode (sandbox)
   installed into the sandbox image; `sbx mcp`/`mcp.servers` would run them on
   the host instead.
 - **Keep `sbxenv.yaml` outside `workspace/`.** The agent can write the workspace.
+- **Never commit without explicit approval.** Editing files, running tests, or
+  staging changes is not permission to commit. See
+  [Change management](#change-management).
 
 ## Toolchain
 
@@ -237,7 +242,12 @@ docker buildx build --platform linux/amd64 \
 
 ## Change management
 
-- **Never commit, amend, tag, or push without explicit user approval.**
+- **Strict commit rule: never commit without explicit user approval.** Do not
+  run `git commit`, `git commit --amend`, `git tag`, or `git push` unless the
+  user has explicitly approved that exact action in the current conversation.
+  Approval to edit files, run tests, or stage changes is not approval to
+  commit. Prior blanket approval does not carry over to a new commit. If the
+  approval is ambiguous, stop and ask.
 - Keep changes in incremental, logically grouped working sets; do not mix
   unrelated edits.
 - Group uncommitted changes into separate Git changelists by concern (for

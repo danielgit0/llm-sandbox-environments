@@ -93,6 +93,8 @@ the repository but are not referenced by the active configuration.
 ├── .yamllint.yaml              # YAML style config for pre-commit
 ├── sbxenv.yaml                 # sandbox, kit list, LiteLLM endpoint
 ├── sbxenv.dsh.yaml             # experimental DeepSeek Harness sandbox
+├── sbxenv.deepseek.yaml        # plain DSH/DeepSeek sandbox
+├── sbxenv.deepseek.local.example.yaml # optional project workspace
 ├── sbxenv.flutter.yaml         # local Flutter host-MCP environment
 ├── sbxenv.java.yaml            # local Quarkus/GraalVM environment
 ├── sbxenv.java.local.example.yaml # gitignored project path template
@@ -309,6 +311,50 @@ sbx env run ./sbxenv.yaml
 
 Inspect the plan before approving it. Kits, env, and secrets take effect when
 the sandbox is created; recreate it after changing them.
+
+## Plain DeepSeek sandbox
+
+`sbxenv.deepseek.yaml` is the minimal IntelliJ chat environment: DSH ACP,
+DeepSeek through LiteLLM, and an empty sandbox workspace. It has no project
+tooling and no MCP servers.
+
+```bash
+litellm/run.sh
+sbx env run --detach /path/to/opencode-sandbox/sbxenv.deepseek.yaml
+```
+
+To mount a specific project or folder, copy the local override and run both
+files:
+
+```bash
+cp sbxenv.deepseek.local.example.yaml sbxenv.deepseek.local.yaml
+# edit workspace to the desired absolute path
+
+sbx env run --detach \
+  /path/to/opencode-sandbox/sbxenv.deepseek.yaml \
+  /path/to/opencode-sandbox/sbxenv.deepseek.local.yaml
+```
+
+`sbxenv.deepseek.local.yaml` is gitignored. Do not pass
+`sbxenv.dsh.local.yaml`, which points at the Java backend.
+
+Add this agent to `~/.jetbrains/acp.json`:
+
+```json
+{
+  "agent_servers": {
+    "DSH DeepSeek": {
+      "command": "/path/to/opencode-sandbox/scripts/dsh-acp-sandbox.sh",
+      "args": [],
+      "env": { "DSH_SANDBOX_NAME": "deepseek-sandbox" }
+    }
+  }
+}
+```
+
+Select **DSH DeepSeek** in AI Chat. Model calls use the LiteLLM-hosted
+`deepseek-flash` or `deepseek-v4-pro` route; the sandbox never receives the
+DeepSeek key.
 
 ## DeepSeek Harness workload (experimental)
 
