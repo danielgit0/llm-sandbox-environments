@@ -20,7 +20,7 @@ IntelliJ configuration (`~/.jetbrains/acp.json`):
 {
   "agent_servers": {
     "DSH Sandbox": {
-      "command": "/Users/example/Documents/projects/opencode-sandbox/scripts/dsh-acp-sandbox.sh",
+      "command": "/path/to/opencode-sandbox/scripts/dsh-acp-sandbox.sh",
       "args": []
     }
   }
