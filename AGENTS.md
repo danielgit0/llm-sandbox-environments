@@ -41,7 +41,7 @@ OpenCode (sandbox)
 - `litellm/` is a uv project: `pyproject.toml`, `uv.lock`, `config.yaml`,
   `run.sh`.
 - `models/` holds inactive local Qwen assets.
-- `scripts/` holds the audit gate and model digest check.
+- `scripts/` holds the audit gate, model digest check, and ACP prompt normalizer.
 
 ## Non-negotiables
 

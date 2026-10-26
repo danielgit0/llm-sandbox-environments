@@ -138,6 +138,7 @@ the repository but are not referenced by the active configuration.
 │       └── kit.yaml
 ├── scripts/
 │   ├── audit.sh                # trivy vulnerability gate
+│   ├── acp-normalize.py        # converts ACP resource prompts to text
 │   ├── check-jsonc.py          # JSONC validator for opencode.example.jsonc
 │   ├── install-uv.sh           # verifies + installs pinned uv 0.13.5
 │   ├── dsh-acp-sandbox.sh      # IntelliJ ACP bridge into dsh-sandbox

@@ -4,6 +4,7 @@ set -euo pipefail
 
 sandbox="${DSH_SANDBOX_NAME:-dsh-sandbox}"
 sbx=(/opt/homebrew/bin/sbx)
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Start the sandbox first so sbx's startup notice does not enter the ACP
 # JSON-RPC stream.
@@ -15,11 +16,13 @@ if [ -z "${DSH_ACP_PATCH:-}" ] \
 fi
 
 if [ -n "${DSH_ACP_PATCH:-}" ]; then
-  exec "${sbx[@]}" exec -i \
+  exec python3 "$repo_dir/scripts/acp-normalize.py" \
+    "${sbx[@]}" exec -i \
     "$sandbox" \
     dsh --profile acp --patch "$DSH_ACP_PATCH"
 fi
 
-exec "${sbx[@]}" exec -i \
+exec python3 "$repo_dir/scripts/acp-normalize.py" \
+  "${sbx[@]}" exec -i \
   "$sandbox" \
   dsh --profile acp
