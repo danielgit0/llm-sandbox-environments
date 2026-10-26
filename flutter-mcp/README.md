@@ -4,8 +4,8 @@ Runs the official Dart/Flutter MCP server on macOS and exposes it to the
 sandbox over Streamable HTTP. Flutter/Dart never enter the Linux sandbox.
 
 ```bash
-FLUTTER_PROJECT=/Users/daniel/.../blue_collar_app \
-FLUTTER_DART=/Users/daniel/development/flutter/bin/dart \
+FLUTTER_PROJECT=/Users/example/flutter_app \
+FLUTTER_DART=/Users/example/flutter/bin/dart \
 flutter-mcp/run.sh
 ```
 
