@@ -34,7 +34,7 @@ trivy image \
   --exit-code 1 \
   --ignore-unfixed \
   --pkg-types os \
-  docker.io/docker/sbx-kit-opencode:1.18.33@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
+  docker.io/docker/sbx-kit-opencode:1.19.5@sha256:f5dcf771efda91c2fe37a5280b93124e03d69a66f14242fb15ed4036e668be3b
 
 echo "== MCP build base image =="
 trivy image \

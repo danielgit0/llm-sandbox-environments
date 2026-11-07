@@ -3,9 +3,10 @@
 //
 // Every model below is a LiteLLM alias: its name must match model_name in
 // litellm/config.yaml. The sandbox has no other model egress path.
+// OPENCODE_MODEL selects the alias and is set in the env file.
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "litellm/deepseek-flash",
+  "model": "{env:OPENCODE_MODEL}",
   "provider": {
     "litellm": {
       "npm": "@ai-sdk/openai-compatible",
@@ -17,6 +18,10 @@
         "deepseek-flash": {
           "name": "DeepSeek V4.1 Flash (hosted)",
           "limit": { "context": 1000000, "output": 393216 }
+        },
+        "local-llm": {
+          "name": "Local LLM (Ollama)",
+          "limit": { "context": 32768, "output": 8192 }
         }
       }
     }

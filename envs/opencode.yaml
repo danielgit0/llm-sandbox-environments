@@ -6,9 +6,9 @@ agent: sbx-kit-opencode
 workspace: ../workspace
 
 kits:
-  # Latest published kit. Pinned by tag + manifest digest; 1.19.4 is not
-  # published on docker.io, so sbx env run would fail on it.
-  - docker.io/docker/sbx-kit-opencode:1.18.33@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
+  # Pinned by tag + manifest digest. Keep the digest in sync with SECURITY.md
+  # and scripts/audit.sh when the kit is updated.
+  - docker.io/docker/sbx-kit-opencode:1.19.5@sha256:f5dcf771efda91c2fe37a5280b93124e03d69a66f14242fb15ed4036e668be3b
   - ../mcps/codebase-memory-mcp
   - ../tools/openspec
   # Single model egress path. The sandbox cannot reach Ollama or providers
@@ -34,3 +34,6 @@ env:
   # Sandbox-side model URL. The egress host:port is literal in
   # providers/litellm/kit.yaml; keep the port in sync there and in run.sh.
   LITELLM_BASE_URL: http://host.docker.internal:4000/v1
+  # OpenCode resolves this into workspace/opencode.json. Use a LiteLLM alias
+  # from litellm/config.yaml. envs/opencode-local.yaml selects local-llm.
+  OPENCODE_MODEL: litellm/deepseek-flash

@@ -1,0 +1,28 @@
+schemaVersion: "1"
+name: opencode-local-sandbox
+
+# Same OpenCode workload and workspace as envs/opencode.yaml, but the model is
+# the host-local Ollama alias. Create the Ollama tag once with
+# scripts/setup-ollama-model.sh and start litellm/run.sh before this sandbox.
+agent: sbx-kit-opencode
+workspace: ../workspace
+
+kits:
+  - docker.io/docker/sbx-kit-opencode:1.19.5@sha256:f5dcf771efda91c2fe37a5280b93124e03d69a66f14242fb15ed4036e668be3b
+  - ../mcps/codebase-memory-mcp
+  - ../tools/openspec
+  # The sandbox still reaches only LiteLLM. LiteLLM reaches Ollama on the
+  # host; Ollama's 127.0.0.1:11434 is never exposed to the sandbox.
+  - ../providers/litellm
+
+sandboxOptions:
+  cpus: 4
+  memory: 8g
+  skills: readonly
+
+env:
+  LANG: C.UTF-8
+  LITELLM_BASE_URL: http://host.docker.internal:4000/v1
+  # litellm/local-llm maps to ollama_chat/local-llm in litellm/config.yaml.
+  # Switch to litellm/deepseek-flash (or use /models) for the hosted model.
+  OPENCODE_MODEL: litellm/local-llm

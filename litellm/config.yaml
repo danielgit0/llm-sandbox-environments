@@ -2,6 +2,15 @@
 #   litellm/run.sh
 # It binds 127.0.0.1:4000; the sandbox reaches it through the proxy.
 model_list:
+  # Local Ollama on the host. The sandbox never reaches 127.0.0.1:11434; only
+  # LiteLLM does. `local-llm` is a stable tag created by
+  # scripts/setup-ollama-model.sh from a base model (qwen3:0.6b by default),
+  # so swapping the base only recreates the tag, not this file or the sandbox.
+  - model_name: local-llm
+    litellm_params:
+      model: ollama_chat/local-llm
+      api_base: http://127.0.0.1:11434
+
   # The two user-facing DeepSeek models. DSH ACP advertises both; IntelliJ
   # can select either without an invalid-model error.
   - model_name: deepseek-flash

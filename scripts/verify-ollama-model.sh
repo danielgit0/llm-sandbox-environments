@@ -4,7 +4,7 @@
 # registry digest is read from that layer, not from the local file hash.
 set -euo pipefail
 
-base="${1:-qwen2.5-coder:7b}"
+base="${1:-qwen3:0.6b}"
 case "$base" in
   *:*) model="$base" ;;
   *) model="$base:latest" ;;
@@ -19,10 +19,6 @@ if [ ! -f "$pins" ]; then
 fi
 
 expected=$(awk -v m="$model" '$1 == m {print $2}' "$pins")
-if [ -z "${expected:-}" ]; then
-  echo "no pinned digest for $model; skipping verification" >&2
-  exit 0
-fi
 
 name="${model%:*}"
 tag="${model##*:}"
@@ -52,6 +48,13 @@ for layer in data.get("layers", []):
         break
 PY
 )
+
+if [ -z "${expected:-}" ]; then
+  echo "no pinned digest for $model; skipping verification" >&2
+  echo "  actual:   ${actual:-<missing embedded manifest layer>}" >&2
+  echo "  add it to $pins to pin this model" >&2
+  exit 0
+fi
 
 if [ "$actual" != "$expected" ]; then
   echo "$model registry manifest digest mismatch" >&2
