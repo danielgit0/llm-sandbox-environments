@@ -2,16 +2,16 @@ schemaVersion: "1"
 name: quarkus-sandbox
 
 agent: dsh
-# Placeholder; set the real path in sbxenv.java.local.yaml (gitignored).
+# Placeholder; set the real path in envs/local/java.local.yaml (gitignored).
 workspace: /absolute/path/to/quarkus-project
 
 kits:
-  - ./dsh
-  - ./tools/java
-  - ./tools/openspec
-  - ./mcps/codebase-memory-mcp
-  - ./providers/litellm
-  - ./providers/java-egress
+  - ../dsh
+  - ../tools/java
+  - ../tools/openspec
+  - ../mcps/codebase-memory-mcp
+  - ../providers/litellm
+  - ../providers/java-egress
 
 sandboxOptions:
   cpus: 4

@@ -48,13 +48,13 @@ letters, digits, and hyphens (`codebase-memory-mcp`, not `CodebaseMemoryMCP`).
    general sandbox rules there. Prefix the file with
    `<!-- markdownlint-disable MD041 -->` so the lint does not require a
    top-level heading.
-5. List the directory in `sbxenv.yaml` after the workload entry:
+5. List the directory in `envs/opencode.yaml` after the workload entry:
 
    ```yaml
    kits:
      - docker.io/docker/sbx-kit-opencode:1.18.33@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
-     - ./mcps/codebase-memory-mcp
-     - ./mcps/<name>
+     - ../mcps/codebase-memory-mcp
+     - ../mcps/<name>
    ```
 
 6. Register the command in `workspace/opencode.json`:
@@ -77,7 +77,7 @@ letters, digits, and hyphens (`codebase-memory-mcp`, not `CodebaseMemoryMCP`).
 ## Check your work
 
 ```bash
-sbx env plan ./sbxenv.yaml         # resolves the kit and shows the new entry
+sbx env plan ./envs/opencode.yaml  # resolves the kit and shows the new entry
 docker buildx build --platform linux/amd64 \
   -f mcps/<name>/kit.Dockerfile \
   --build-arg MCP_VERSION=<version> \

@@ -18,12 +18,15 @@ It is designed to be extended:
 
 | Environment | Agent | MCP mode |
 | --- | --- | --- |
-| `sbxenv.yaml` | OpenCode | in-sandbox `codebase-memory-mcp` |
-| `sbxenv.dsh.yaml` | DSH ACP / IntelliJ | none |
-| `sbxenv.flutter.yaml` | DSH ACP / IntelliJ | codebase-memory + in-sandbox Dart MCP |
-| `sbxenv.java.yaml` | DSH ACP / IntelliJ | codebase-memory; GraalVM JDK 25 |
+| `envs/opencode.yaml` | OpenCode | in-sandbox `codebase-memory-mcp` |
+| `envs/deepseek.yaml` | DSH ACP / IntelliJ | none |
+| `envs/dsh.yaml` | DSH ACP / IntelliJ | none |
+| `envs/flutter.yaml` | DSH ACP / IntelliJ | codebase-memory + in-sandbox Dart MCP |
+| `envs/java.yaml` | DSH ACP / IntelliJ | codebase-memory; GraalVM JDK 25 |
 
-All active environments also install the pinned OpenSpec CLI for spec-driven
+All environment files live in `envs/`; project-specific workspace overrides
+live in the gitignored `envs/local/` directory. The OpenCode, DSH, Flutter, and
+Java environments also install the pinned OpenSpec CLI for spec-driven
 development; it is a project tool, not an MCP server.
 
 All runtime components are pinned by version plus digest or hash. See
@@ -91,13 +94,17 @@ the repository but are not referenced by the active configuration.
 .
 ├── .trivyignore.yaml           # scoped, expiring audit exceptions
 ├── .yamllint.yaml              # YAML style config for pre-commit
-├── sbxenv.yaml                 # sandbox, kit list, LiteLLM endpoint
-├── sbxenv.dsh.yaml             # experimental DeepSeek Harness sandbox
-├── sbxenv.deepseek.yaml        # plain DSH/DeepSeek sandbox
-├── sbxenv.deepseek.local.example.yaml # optional project workspace
-├── sbxenv.flutter.yaml         # local Flutter host-MCP environment
-├── sbxenv.java.yaml            # local Quarkus/GraalVM environment
-├── sbxenv.java.local.example.yaml # gitignored project path template
+├── envs/                       # sandbox environments
+│   ├── opencode.yaml           # default OpenCode + MCPs
+│   ├── deepseek.yaml           # plain DSH/DeepSeek chat
+│   ├── dsh.yaml                # DSH + OpenSpec
+│   ├── flutter.yaml            # local Flutter environment
+│   ├── java.yaml               # local Quarkus/GraalVM environment
+│   └── local/                  # gitignored workspace overrides
+│       ├── deepseek.local.example.yaml
+│       ├── dsh.local.example.yaml
+│       ├── flutter.local.example.yaml
+│       └── java.local.example.yaml
 ├── SECURITY.md                 # pins, audit, accepted risks
 ├── litellm/
 │   ├── .python-version         # 3.12.15 for the uv project
@@ -173,13 +180,13 @@ sandbox.
    binary at a stable absolute path such as `/usr/local/bin/<name>`, verify the
    download against a hash committed in the Dockerfile, and smoke-test it
    (`--version`) during the build.
-4. Append the directory to `kits:` in `sbxenv.yaml`:
+4. Append the directory to `kits:` in `envs/opencode.yaml`:
 
    ```yaml
    kits:
      - docker.io/docker/sbx-kit-opencode:1.18.33@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
-     - ./mcps/codebase-memory-mcp
-     - ./mcps/<name>
+     - ../mcps/codebase-memory-mcp
+     - ../mcps/<name>
    ```
 
 5. Register the same binary in `workspace/opencode.json` so OpenCode starts it
@@ -203,12 +210,12 @@ Then run `sbx env plan` and inspect the new kit entry before applying.
 
 ## Why servers are registered in `workspace/opencode.json`
 
-Docker Sandboxes' MCP gateway (`sbx mcp`, `mcp.servers` in `sbxenv.yaml`) runs
-local stdio servers on the **host**. The servers in this project are installed
-into the **sandbox image**, so they are registered as project-level OpenCode
-configuration instead: OpenCode starts them inside the sandbox, where the
-binary and its view of the mounted workspace live. The OpenCode workload
-separately registers the gateway (when one is active) in
+Docker Sandboxes' MCP gateway (`sbx mcp`, `mcp.servers` in
+`envs/opencode.yaml`) runs local stdio servers on the **host**. The servers in
+this project are installed into the **sandbox image**, so they are registered
+as project-level OpenCode configuration instead: OpenCode starts them inside
+the sandbox, where the binary and its view of the mounted workspace live. The
+OpenCode workload separately registers the gateway (when one is active) in
 `~/.config/opencode/opencode.json` at startup; OpenCode merges that with the
 project configuration.
 
@@ -278,16 +285,16 @@ The default OpenCode and DSH ACP workloads use hosted DeepSeek, so
 - `litellm/run.sh` exports `LITELLM_TELEMETRY_DISABLED=true` and
   `LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true` for the
   loopback-only gateway.
-- `sbxenv.yaml` sets `LITELLM_BASE_URL=http://host.docker.internal:4000/v1`
-  for OpenCode.
+- `envs/opencode.yaml` sets
+  `LITELLM_BASE_URL=http://host.docker.internal:4000/v1` for OpenCode.
 - `providers/litellm/kit.yaml` allows `localhost:4000` literally. sbx resolves
-  kit capabilities before `sbxenv` `env:` is visible to `kit.env`, so this
-  value cannot use `${{ kit.env... }}`. Changing the gateway port means
-  updating the kit, `litellm/run.sh`, and `LITELLM_BASE_URL`.
+  kit capabilities before the environment file's `env:` block is visible to
+  `kit.env`, so this value cannot use `${{ kit.env... }}`. Changing the gateway
+  port means updating the kit, `litellm/run.sh`, and `LITELLM_BASE_URL`.
 
-There is no single file for every variable: `sbxenv.yaml` and the kit are the
-sandbox side, while `litellm/run.sh` and optional `litellm/.env` are the host
-side. Keep those two groups separate.
+There is no single file for every variable: `envs/opencode.yaml` and the kit
+are the sandbox side, while `litellm/run.sh` and optional `litellm/.env` are
+the host side. Keep those two groups separate.
 
 Optional values:
 
@@ -306,38 +313,43 @@ is used only by LiteLLM on the host.
 ## Plan and run the sandbox
 
 ```bash
-sbx env plan ./sbxenv.yaml
-sbx env run ./sbxenv.yaml
+sbx env plan ./envs/opencode.yaml
+sbx env run ./envs/opencode.yaml
 ```
 
 Inspect the plan before approving it. Kits, env, and secrets take effect when
 the sandbox is created; recreate it after changing them.
 
+Paths inside an environment file are relative to that file. The files under
+`envs/` therefore point at `../workspace`, `../dsh`, and the shared kit
+directories with `../`.
+
 ## Plain DeepSeek sandbox
 
-`sbxenv.deepseek.yaml` is the minimal IntelliJ chat environment: DSH ACP,
+`envs/deepseek.yaml` is the minimal IntelliJ chat environment: DSH ACP,
 DeepSeek through LiteLLM, and an empty sandbox workspace. It has no project
 tooling and no MCP servers.
 
 ```bash
 litellm/run.sh
-sbx env run --detach /path/to/opencode-sandbox/sbxenv.deepseek.yaml
+sbx env run --detach /path/to/opencode-sandbox/envs/deepseek.yaml
 ```
 
 To mount a specific project or folder, copy the local override and run both
 files:
 
 ```bash
-cp sbxenv.deepseek.local.example.yaml sbxenv.deepseek.local.yaml
+cp envs/local/deepseek.local.example.yaml envs/local/deepseek.local.yaml
 # edit workspace to the desired absolute path
 
 sbx env run --detach \
-  /path/to/opencode-sandbox/sbxenv.deepseek.yaml \
-  /path/to/opencode-sandbox/sbxenv.deepseek.local.yaml
+  /path/to/opencode-sandbox/envs/deepseek.yaml \
+  /path/to/opencode-sandbox/envs/local/deepseek.local.yaml
 ```
 
-`sbxenv.deepseek.local.yaml` is gitignored. Do not pass
-`sbxenv.dsh.local.yaml`, which points at the Java backend.
+`envs/local/deepseek.local.yaml` is gitignored. The optional
+`envs/local/dsh.local.yaml` mounts a workspace into `envs/dsh.yaml`; for the
+Java backend, use `envs/java.yaml` instead.
 
 Add this agent to `~/.jetbrains/acp.json`:
 
@@ -359,12 +371,12 @@ DeepSeek key.
 
 ## DeepSeek Harness workload (experimental)
 
-`sbxenv.dsh.yaml` runs DSH in a dedicated sandbox and exposes its **ACP**
+`envs/dsh.yaml` runs DSH in a dedicated sandbox and exposes its **ACP**
 profile for IntelliJ. This is separate from the OpenCode workload above.
 
 ```bash
-sbx env plan ./sbxenv.dsh.yaml
-sbx env run ./sbxenv.dsh.yaml
+sbx env plan ./envs/dsh.yaml
+sbx env run ./envs/dsh.yaml
 ```
 
 Configure IntelliJ AI Assistant's ACP agents in `~/.jetbrains/acp.json`:
@@ -403,15 +415,15 @@ the sandbox without a host bridge.
 Set the Flutter project path and run the environment:
 
 ```bash
-cp sbxenv.flutter.local.example.yaml sbxenv.flutter.local.yaml
+cp envs/local/flutter.local.example.yaml envs/local/flutter.local.yaml
 # edit workspace to /path/to/flutter-app
 
 sbx env plan \
-  /path/to/opencode-sandbox/sbxenv.flutter.yaml \
-  /path/to/opencode-sandbox/sbxenv.flutter.local.yaml
+  /path/to/opencode-sandbox/envs/flutter.yaml \
+  /path/to/opencode-sandbox/envs/local/flutter.local.yaml
 sbx env run --detach \
-  /path/to/opencode-sandbox/sbxenv.flutter.yaml \
-  /path/to/opencode-sandbox/sbxenv.flutter.local.yaml
+  /path/to/opencode-sandbox/envs/flutter.yaml \
+  /path/to/opencode-sandbox/envs/local/flutter.local.yaml
 ```
 
 The sandbox name is `flutter-sandbox`. In IntelliJ:
@@ -481,15 +493,15 @@ The Java environment uses the pinned GraalVM Community JDK 25.0.1 and the
 project's Gradle wrapper.
 
 ```bash
-cp sbxenv.java.local.example.yaml sbxenv.java.local.yaml
+cp envs/local/java.local.example.yaml envs/local/java.local.yaml
 # edit the absolute workspace path
 
 sbx env plan \
-  /path/to/opencode-sandbox/sbxenv.java.yaml \
-  /path/to/opencode-sandbox/sbxenv.java.local.yaml
+  /path/to/opencode-sandbox/envs/java.yaml \
+  /path/to/opencode-sandbox/envs/local/java.local.yaml
 sbx env run --detach \
-  /path/to/opencode-sandbox/sbxenv.java.yaml \
-  /path/to/opencode-sandbox/sbxenv.java.local.yaml
+  /path/to/opencode-sandbox/envs/java.yaml \
+  /path/to/opencode-sandbox/envs/local/java.local.yaml
 ```
 
 Sandbox name: `quarkus-sandbox`. In IntelliJ, set:
@@ -544,7 +556,7 @@ sbx kit inspect \
   docker.io/docker/sbx-kit-opencode@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
 
 # 2. The environment resolves with the LiteLLM kit and both env vars.
-sbx env plan ./sbxenv.yaml
+sbx env plan ./envs/opencode.yaml
 
 # 3. The LiteLLM lock is unchanged and installs frozen.
 cd litellm
@@ -573,8 +585,8 @@ curl -s http://host.docker.internal:4000/v1/models
 Expected:
 
 - `sbx kit inspect` prints the OpenCode kit at the pinned digest.
-- `sbx env plan` lists `./mcps/codebase-memory-mcp` and
-  `./providers/litellm`, plus `LITELLM_BASE_URL`.
+- `sbx env plan` lists the `codebase-memory-mcp` and `litellm` kits, plus
+  `LITELLM_BASE_URL`.
 - `scripts/audit.sh` passes for the LiteLLM lockfile, MCP Dockerfile, and MCP
   base image. It fails on the pinned OpenCode workload image; see Known issue.
 - LiteLLM returns `deepseek-flash` and `deepseek-v4-pro`.
@@ -608,7 +620,7 @@ Options:
 - Accept the documented upstream risk until Docker republishes the kit, then
   bump the digest and re-run the audit.
 - Build and publish a custom OpenCode workload from a patched base image, pin
-  its digest in `sbxenv.yaml`, and replace the upstream kit.
+  its digest in `envs/opencode.yaml`, and replace the upstream kit.
 
 ## Verify MCP
 

@@ -8,8 +8,8 @@ description: Allows the sandbox to reach the LiteLLM gateway on the host.
 capabilities:
   # This is the only model egress path. The value is literal because sbx
   # resolves kit capabilities before the environment's env: block is visible
-  # to kit.env. Keep it in sync with LITELLM_BASE_URL in sbxenv.yaml and the
-  # --port in litellm/run.sh.
+  # to kit.env. Keep it in sync with LITELLM_BASE_URL in envs/opencode.yaml and
+  # the --port in litellm/run.sh.
   - type: com.docker.sandbox/network-policy@1
     config:
       runtime:

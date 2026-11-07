@@ -150,8 +150,8 @@ that finding is recorded above and in the README Known issue.
 ## Updating
 
 1. Pick a new version and obtain its digest or release hash.
-2. Update `sbxenv.yaml`, `kit.Dockerfile`, `litellm/pyproject.toml`, or the
-   Ollama/model pins as applicable.
+2. Update `envs/opencode.yaml`, `kit.Dockerfile`, `litellm/pyproject.toml`, or
+   the Ollama/model pins as applicable.
 3. Regenerate and install the lock:
 
    ```bash

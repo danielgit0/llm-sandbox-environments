@@ -16,6 +16,9 @@ opencode.local.jsonc
 # ── Generated environments and caches ───────────────────
 litellm/.venv/
 dsh/.venv/
+envs/local/*.local.yaml
+!envs/local/*.local.example.yaml
+# Legacy root layout; remove once every checkout has migrated to envs/local/.
 sbxenv.*.local.yaml
 .buildx/
 .uv-cache/

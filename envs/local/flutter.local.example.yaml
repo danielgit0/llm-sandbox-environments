@@ -1,0 +1,3 @@
+# Copy to envs/local/flutter.local.yaml (gitignored) and set the absolute path.
+# Pass it after envs/flutter.yaml; later files override earlier values.
+workspace: /Users/example/flutter_app

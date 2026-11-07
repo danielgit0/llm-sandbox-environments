@@ -1,0 +1,3 @@
+# Optional: copy to envs/local/dsh.local.yaml (gitignored) to mount a
+# different workspace. The default envs/dsh.yaml uses ../dsh/workspace.
+workspace: /path/to/folder/workspace

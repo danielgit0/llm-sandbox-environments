@@ -3,15 +3,15 @@ name: flutter-sandbox
 
 # Host Flutter MCP bridge: Flutter/Dart run on macOS, not in this sandbox.
 agent: dsh
-# Placeholder; set the real path in sbxenv.flutter.local.yaml (gitignored).
+# Placeholder; set the real path in envs/local/flutter.local.yaml (gitignored).
 workspace: /absolute/path/to/flutter-app
 
 kits:
-  - ./dsh
-  - ./tools/openspec
-  - ./tools/dart
-  - ./mcps/codebase-memory-mcp
-  - ./providers/litellm
+  - ../dsh
+  - ../tools/openspec
+  - ../tools/dart
+  - ../mcps/codebase-memory-mcp
+  - ../providers/litellm
 
 sandboxOptions:
   cpus: 4

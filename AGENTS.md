@@ -23,8 +23,10 @@ OpenCode (sandbox)
             └─ DeepSeek API (host egress; key in litellm/.env)
 ```
 
-- `sbxenv.yaml` selects the workload kit, the MCP kit, and the LiteLLM egress
-  kit.
+- `envs/` holds one environment file per workload. `envs/opencode.yaml`
+  selects the workload kit, the MCP kit, and the LiteLLM egress kit.
+- `envs/local/` holds gitignored workspace overrides. Copy the matching
+  `*.local.example.yaml` to `*.local.yaml` and edit `workspace`.
 - `workspace/opencode.json` defines the LiteLLM provider and registers MCP
   servers with OpenCode.
 - `mcps/<name>/` contains self-contained v3 mixins that install MCP binaries
@@ -34,10 +36,10 @@ OpenCode (sandbox)
 - `tools/dart/` installs Dart 3.13.5 and the in-sandbox Dart MCP server.
 - `tools/java/` installs GraalVM JDK 25.0.1 into the Quarkus sandbox;
   `providers/java-egress` allows Gradle/Maven egress.
-- `dsh/` is an experimental v3 DeepSeek Harness workload; `sbxenv.dsh.yaml`
-  selects it. `sbxenv.deepseek.yaml` is the plain no-MCP chat variant. It
+- `dsh/` is an experimental v3 DeepSeek Harness workload; `envs/dsh.yaml`
+  selects it. `envs/deepseek.yaml` is the plain no-MCP chat variant. It
   shares LiteLLM and the egress mixin but has its own workspace. Use the
-  gitignored `sbxenv.deepseek.local.yaml` to mount a specific folder.
+  gitignored `envs/local/deepseek.local.yaml` to mount a specific folder.
 - `litellm/` is a uv project: `pyproject.toml`, `uv.lock`, `config.yaml`,
   `run.sh`.
 - `models/` holds inactive local Qwen assets.
@@ -61,7 +63,8 @@ OpenCode (sandbox)
 - **Keep MCP registration in `workspace/opencode.json`.** These servers are
   installed into the sandbox image; `sbx mcp`/`mcp.servers` would run them on
   the host instead.
-- **Keep `sbxenv.yaml` outside `workspace/`.** The agent can write the workspace.
+- **Keep environment files outside `workspace/`.** They live in `envs/`; the
+  agent can write the workspace.
 - **Never commit without explicit approval.** Editing files, running tests, or
   staging changes is not permission to commit. See
   [Change management](#change-management).
@@ -86,10 +89,11 @@ uses the checksum-verified binary in `.tools/`.
 ## Environment
 
 Required LiteLLM variables live in `litellm/run.sh`; sandbox variables live in
-`sbxenv.yaml`. The LiteLLM egress host:port is literal in
-`providers/litellm/kit.yaml` because sbx resolves it before `sbxenv` env is
-visible to `kit.env`. Optional host secrets go in `litellm/.env` (gitignored,
-loaded by `run.sh`); never commit it or mount it into the sandbox.
+`envs/opencode.yaml`. The LiteLLM egress host:port is literal in
+`providers/litellm/kit.yaml` because sbx resolves it before the environment
+file's `env:` block is visible to `kit.env`. Optional host secrets go in
+`litellm/.env` (gitignored, loaded by `run.sh`); never commit it or mount it
+into the sandbox.
 
 ## Common tasks
 
@@ -97,12 +101,12 @@ loaded by `run.sh`); never commit it or mount it into the sandbox.
 
 Follow [mcps/README.md](mcps/README.md). In short: new `mcps/<name>/` with
 `kit.yaml`, `kit.Dockerfile`, `context.md`, `README.md`; pin the base digest and
-archive hashes; add the kit to `sbxenv.yaml`; register the binary in
+archive hashes; add the kit to `envs/opencode.yaml`; register the binary in
 `workspace/opencode.json`.
 
 ### DSH workload
 
-`dsh/` is a separate v3 workload selected by `sbxenv.dsh.yaml`. It uses the
+`dsh/` is a separate v3 workload selected by `envs/dsh.yaml`. It uses the
 pinned uv image, installs `deepseek-harness-sdk` with `uv sync --frozen`, and
 keeps the sandbox alive. IntelliJ launches `dsh --profile acp` through
 `scripts/dsh-acp-sandbox.sh`, which bridges ACP stdio with `sbx exec -i`.
@@ -119,9 +123,9 @@ Flutter/Dart commands and builds stay on the macOS host because Flutter has no
 Linux arm64 SDK. The sandbox includes Dart 3.13.5 and the JIT
 `dart_mcp_server` package, so Dart MCP tools run inside the sandbox.
 
-`sbxenv.flutter.yaml` is the local environment: DSH, codebase-memory,
+`envs/flutter.yaml` is the local environment: DSH, codebase-memory,
 OpenSpec, Dart MCP, and LiteLLM. Set its `workspace` in the gitignored
-`sbxenv.flutter.local.yaml`, then run both env files. The ACP wrapper
+`envs/local/flutter.local.yaml`, then run both env files. The ACP wrapper
 auto-detects `/opt/dart-mcp/mcp.patch.yml` and registers the Dart and
 codebase-memory servers. Flutter commands, iOS/Android builds, and the
 project pre-commit stay on the host.
@@ -135,9 +139,9 @@ OpenSpec requires Node.js >=20.19; the DSH base provides Node 22.22.1.
 
 ### Java / Quarkus
 
-`sbxenv.java.yaml` is the local Quarkus environment: DSH, GraalVM JDK 25,
+`envs/java.yaml` is the local Quarkus environment: DSH, GraalVM JDK 25,
 OpenSpec, codebase-memory, LiteLLM, and Java/Gradle egress. Set the workspace
-in the gitignored `sbxenv.java.local.yaml`, then run both env files.
+in the gitignored `envs/local/java.local.yaml`, then run both env files.
 
 The project's Gradle wrapper is authoritative; no Gradle distribution is
 baked into the image. `providers/java-egress` allows Gradle, Maven Central, the
@@ -181,18 +185,18 @@ cd ..
 cd dsh
 ../scripts/uv lock --check
 cd ..
-sbx env plan ./sbxenv.dsh.yaml
+sbx env plan ./envs/dsh.yaml
 
 # Local Flutter environment with in-sandbox Dart MCP; set workspace first.
-sbx env plan ./sbxenv.flutter.yaml
+sbx env plan ./envs/flutter.yaml
 
 # Local Java/Quarkus environment; set workspace first.
-sbx env plan ./sbxenv.java.yaml
+sbx env plan ./envs/java.yaml
 
 # Sandbox configuration resolves.
 sbx kit inspect \
   docker.io/docker/sbx-kit-opencode@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
-sbx env plan ./sbxenv.yaml
+sbx env plan ./envs/opencode.yaml
 
 # Audit. It intentionally fails on the upstream OpenCode image; see below.
 scripts/audit.sh
