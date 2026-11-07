@@ -8,8 +8,9 @@ provider credentials and model egress on the host.
 It is designed to be extended:
 
 - **Models** are reached through a host-side LiteLLM gateway. The sandbox has
-  no provider key and exactly one model egress path. Hosted DeepSeek is active;
-  the local Qwen/Ollama scripts and model assets remain for experimentation.
+  no provider key and exactly one model egress path. Hosted DeepSeek and a
+  host-local Ollama model are active; `OPENCODE_MODEL` selects the LiteLLM
+  alias.
 - **MCP servers** can run inside the sandbox as self-contained stdio binaries
   or be bridged from the host over HTTP. `codebase-memory-mcp` runs in the
   image; the Flutter project uses an in-sandbox Dart MCP server.
@@ -19,6 +20,7 @@ It is designed to be extended:
 | Environment | Agent | MCP mode |
 | --- | --- | --- |
 | `envs/opencode.yaml` | OpenCode | in-sandbox `codebase-memory-mcp` |
+| `envs/opencode-local.yaml` | OpenCode | in-sandbox `codebase-memory-mcp` |
 | `envs/deepseek.yaml` | DSH ACP / IntelliJ | none |
 | `envs/dsh.yaml` | DSH ACP / IntelliJ | none |
 | `envs/flutter.yaml` | DSH ACP / IntelliJ | codebase-memory + in-sandbox Dart MCP |
@@ -27,9 +29,12 @@ It is designed to be extended:
 All environment files live in `envs/`; project-specific workspace overrides
 live in the gitignored `envs/local/` directory. The OpenCode, DSH, Flutter, and
 Java environments also install the pinned OpenSpec CLI for spec-driven
-development; it is a project tool, not an MCP server.
+development; it is a project tool, not an MCP server. `envs/opencode-local.yaml`
+reuses the default OpenCode workspace and only selects the local model.
 
-All runtime components are pinned by version plus digest or hash. See
+Runtime components are pinned by version plus digest or hash. The local
+`qwen3:0.6b` and `qwen3:8b` manifest digests are pinned in
+`models/ollama-model-digests.txt`; see
 [SECURITY.md](SECURITY.md) for the pins, audit gate, and accepted risks. The
 upstream OpenCode workload image currently has an open finding; see
 [Known issue](#known-issue-opencode-workload-image).
@@ -39,22 +44,24 @@ This repository was developed with the help of DeepSeek Harness.
 ## Architecture
 
 OpenCode runs inside the sandbox. LiteLLM runs on the host and reaches hosted
-DeepSeek.
+DeepSeek and the host-local Ollama process.
 
 ```mermaid
 flowchart LR
     subgraph Host["Host"]
         direction TB
         DeepSeek["DeepSeek API<br/>api.deepseek.com"]
+        Ollama["Ollama 0.40.10<br/>local-llm<br/>127.0.0.1:11434"]
         LiteLLM["LiteLLM 1.106.3<br/>127.0.0.1:4000"]
         Secrets["litellm/.env<br/>DEEPSEEK_API_KEY"]
         LiteLLM -->|"HTTPS"| DeepSeek
+        LiteLLM -->|"ollama_chat"| Ollama
         Secrets -.-> LiteLLM
     end
 
     subgraph Sandbox["Docker Sandbox"]
         direction TB
-        OpenCode["OpenCode 1.18.33"]
+        OpenCode["OpenCode 1.19.5"]
         Config["workspace/opencode.json<br/>LiteLLM provider + MCP"]
         MCP["codebase-memory-mcp 0.12.1<br/>local stdio"]
         Workspace["Mounted workspace/"]
@@ -72,7 +79,8 @@ The three layers are:
    `workspace/` only.
 2. **Host gateway**: LiteLLM accepts OpenAI-compatible requests on loopback
    and holds the DeepSeek key. It is the only model egress.
-3. **Host model backend**: hosted DeepSeek only.
+3. **Host model backend**: hosted DeepSeek and host-local Ollama. The sandbox
+   reaches neither directly; only LiteLLM does.
 
 The sandbox-facing name `host.docker.internal` is rewritten to `localhost` by
 the sandbox proxy, which is why the egress rule names `localhost:4000`.
@@ -81,12 +89,17 @@ the sandbox proxy, which is why the egress rule names `localhost:4000`.
 
 ```mermaid
 flowchart LR
-    DeepSeek["DeepSeek API"] -->|"deepseek/deepseek-v4-flash"| LiteLLM["LiteLLM model_name<br/>deepseek-flash"]
-    LiteLLM -->|"workspace/opencode.json"| Selected["OpenCode model<br/>litellm/deepseek-flash"]
+    DeepSeek["DeepSeek API"] -->|"deepseek/deepseek-v4-flash"| Hosted["LiteLLM model_name<br/>deepseek-flash"]
+    Ollama["Ollama local-llm"] -->|"ollama_chat/local-llm"| Local["LiteLLM model_name<br/>local-llm"]
+    Hosted -->|"OPENCODE_MODEL"| Selected["OpenCode model<br/>litellm/deepseek-flash<br/>or litellm/local-llm"]
+    Local -->|"OPENCODE_MODEL"| Selected
 ```
 
-The DSH ACP workload uses the same LiteLLM alias. Local Qwen assets remain in
-the repository but are not referenced by the active configuration.
+`envs/opencode.yaml` selects `litellm/deepseek-flash`;
+`envs/opencode-local.yaml` selects `litellm/local-llm`. The local alias points
+at the stable Ollama tag `local-llm`, so changing the base model only recreates
+that tag, not the sandbox configuration. The DSH ACP workload uses the hosted
+DeepSeek aliases.
 
 ## Layout
 
@@ -95,7 +108,8 @@ the repository but are not referenced by the active configuration.
 ├── .trivyignore.yaml           # scoped, expiring audit exceptions
 ├── .yamllint.yaml              # YAML style config for pre-commit
 ├── envs/                       # sandbox environments
-│   ├── opencode.yaml           # default OpenCode + MCPs
+│   ├── opencode.yaml           # default OpenCode + hosted model
+│   ├── opencode-local.yaml     # OpenCode + local Ollama model
 │   ├── deepseek.yaml           # plain DSH/DeepSeek chat
 │   ├── dsh.yaml                # DSH + OpenSpec
 │   ├── flutter.yaml            # local Flutter environment
@@ -108,13 +122,13 @@ the repository but are not referenced by the active configuration.
 ├── SECURITY.md                 # pins, audit, accepted risks
 ├── litellm/
 │   ├── .python-version         # 3.12.15 for the uv project
-│   ├── config.yaml             # model_list: hosted DeepSeek
+│   ├── config.yaml             # model_list: local Ollama + hosted DeepSeek
 │   ├── pyproject.toml          # litellm[proxy]==1.106.3
 │   ├── uv.lock                 # universal, hash-locked
 │   └── run.sh                  # uv sync --frozen + uv run on 127.0.0.1
-├── models/                    # optional local Qwen (disabled)
+├── models/                     # local Ollama model assets
 │   ├── ollama-model-digests.txt # base model -> manifest SHA-256
-│   └── qwen-coder-7b.Modelfile  # 32k context + low temperature overlay
+│   └── qwen3-0.6b.Modelfile     # default local base: 32k context
 ├── mcps/                       # one self-contained mixin per MCP server
 │   ├── README.md               # conventions and add-a-server checklist
 │   └── codebase-memory-mcp/
@@ -149,7 +163,7 @@ the repository but are not referenced by the active configuration.
 │   ├── check-jsonc.py          # JSONC validator for opencode.example.jsonc
 │   ├── install-uv.sh           # verifies + installs pinned uv 0.13.5
 │   ├── dsh-acp-sandbox.sh      # IntelliJ ACP bridge into dsh-sandbox
-│   ├── setup-ollama-model.sh   # pull base + create qwen-coder-local
+│   ├── setup-ollama-model.sh   # pull base + create local-llm tag
 │   ├── uv                      # wrapper for the pinned uv
 │   └── verify-ollama-model.sh  # model manifest digest check
 ├── dsh/                        # experimental DeepSeek Harness workload
@@ -180,11 +194,12 @@ sandbox.
    binary at a stable absolute path such as `/usr/local/bin/<name>`, verify the
    download against a hash committed in the Dockerfile, and smoke-test it
    (`--version`) during the build.
-4. Append the directory to `kits:` in `envs/opencode.yaml`:
+4. Append the directory to `kits:` in both `envs/opencode.yaml` and
+   `envs/opencode-local.yaml` (they share the workspace and registration):
 
    ```yaml
    kits:
-     - docker.io/docker/sbx-kit-opencode:1.18.33@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
+     - docker.io/docker/sbx-kit-opencode:1.19.5@sha256:f5dcf771efda91c2fe37a5280b93124e03d69a66f14242fb15ed4036e668be3b
      - ../mcps/codebase-memory-mcp
      - ../mcps/<name>
    ```
@@ -234,7 +249,7 @@ rejects a field.
 ## Pinned versions
 
 - OpenCode workload:
-  `docker.io/docker/sbx-kit-opencode:1.18.33@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d`
+  `docker.io/docker/sbx-kit-opencode:1.19.5@sha256:f5dcf771efda91c2fe37a5280b93124e03d69a66f14242fb15ed4036e668be3b`
 - codebase-memory-mcp: 0.12.1, release archive hashes committed in
   `mcps/codebase-memory-mcp/kit.Dockerfile`
 - MCP build base:
@@ -242,9 +257,10 @@ rejects a field.
 - LiteLLM: 1.106.3, locked in `litellm/uv.lock` (`uv sync --frozen`)
 - Python: 3.12.15 (`litellm/.python-version`)
 - uv: 0.13.5, installed by `scripts/install-uv.sh` (checksum-verified)
-- Ollama: 0.40.10 (inactive local assets)
-- qwen2.5-coder digests (inactive local assets): pinned in
-  `models/ollama-model-digests.txt` (0.5b, 1.5b, 3b, 7b)
+- Ollama: 0.40.10 (host-local model backend)
+- Local Ollama bases: `qwen3:0.6b` (default) and `qwen3:8b`, built into the
+  stable `local-llm` tag by `scripts/setup-ollama-model.sh`; registry manifest
+  digests pinned in `models/ollama-model-digests.txt`.
 - DSH SDK: 0.2.1rc2, locked in `dsh/uv.lock`; runtime wheel is
   `deepseek-harness-runtime-bin==0.2.1rc2`
 - DSH uv builder:
@@ -259,11 +275,24 @@ rejects a field.
 
 ## Set up the host
 
-The default setup uses hosted DeepSeek. Put the key in `litellm/.env`:
+The default OpenCode environment uses hosted DeepSeek. Put the key in
+`litellm/.env`:
 
 ```dotenv
 DEEPSEEK_API_KEY=sk-...
 ```
+
+For the local model, install Ollama 0.40.10 and create the stable tag once:
+
+```bash
+ollama pull qwen3:0.6b
+scripts/setup-ollama-model.sh
+```
+
+The script pulls the base (cached after the first pull), verifies its digest
+when pinned, and creates `local-llm` with a 32k context window. Pass another
+base tag to change sizes without touching LiteLLM or the sandbox, for example
+`scripts/setup-ollama-model.sh qwen3:8b`.
 
 Start the pinned LiteLLM gateway. It creates `litellm/.venv`, runs
 `uv sync --frozen` (hash-verified), disables telemetry, and binds
@@ -274,8 +303,8 @@ scripts/install-uv.sh    # verifies the checksum, installs uv 0.13.5
 litellm/run.sh
 ```
 
-Ollama is not required for the active setup. The local Qwen scripts and
-Modelfile remain in the repository but are inactive.
+Ollama is required only for `envs/opencode-local.yaml`; the default OpenCode
+and DSH environments use hosted DeepSeek.
 
 ## Environment variables
 
@@ -286,13 +315,16 @@ The default OpenCode and DSH ACP workloads use hosted DeepSeek, so
   `LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true` for the
   loopback-only gateway.
 - `envs/opencode.yaml` sets
-  `LITELLM_BASE_URL=http://host.docker.internal:4000/v1` for OpenCode.
+  `LITELLM_BASE_URL=http://host.docker.internal:4000/v1` for OpenCode and
+  `OPENCODE_MODEL=litellm/deepseek-flash`.
+- `envs/opencode-local.yaml` keeps the same base URL and sets
+  `OPENCODE_MODEL=litellm/local-llm`.
 - `providers/litellm/kit.yaml` allows `localhost:4000` literally. sbx resolves
   kit capabilities before the environment file's `env:` block is visible to
   `kit.env`, so this value cannot use `${{ kit.env... }}`. Changing the gateway
   port means updating the kit, `litellm/run.sh`, and `LITELLM_BASE_URL`.
 
-There is no single file for every variable: `envs/opencode.yaml` and the kit
+There is no single file for every variable: `envs/opencode*.yaml` and the kit
 are the sandbox side, while `litellm/run.sh` and optional `litellm/.env` are
 the host side. Keep those two groups separate.
 
@@ -302,9 +334,11 @@ Optional values:
   and used by OpenCode only if it selects DeepSeek. Put it in `litellm/.env`
   (copy `litellm/.env.example`; the file is gitignored and loaded by
   `run.sh`), or export it before `litellm/run.sh`.
+- `OPENCODE_MODEL` — the LiteLLM alias OpenCode selects. The environment files
+  set it; use `/models` to switch at runtime without recreating the sandbox.
 - `OLLAMA_NUM_CTX` and `OLLAMA_LOCAL_TAG` — shell variables for
   `scripts/setup-ollama-model.sh`, for example
-  `OLLAMA_NUM_CTX=16384 scripts/setup-ollama-model.sh qwen2.5-coder:0.5b`.
+  `OLLAMA_NUM_CTX=16384 scripts/setup-ollama-model.sh qwen3:0.6b`.
 - `OLLAMA_MODELS` — only if Ollama stores models outside `~/.ollama/models`.
 
 Do not commit `litellm/.env`. The sandbox never receives the DeepSeek key; it
@@ -313,16 +347,55 @@ is used only by LiteLLM on the host.
 ## Plan and run the sandbox
 
 ```bash
+# Hosted DeepSeek
 sbx env plan ./envs/opencode.yaml
 sbx env run ./envs/opencode.yaml
+
+# Host-local Ollama
+sbx env plan ./envs/opencode-local.yaml
+sbx env run ./envs/opencode-local.yaml
 ```
 
-Inspect the plan before approving it. Kits, env, and secrets take effect when
-the sandbox is created; recreate it after changing them.
+Inspect the plan before approving it. Keep the `./` prefix: sbx treats a bare
+relative path such as `envs/opencode-local.yaml` as a kit reference and tries to
+pull it from Docker Hub. Kits, env, and secrets take effect when the sandbox is
+created; recreate it after changing them. The local environment mounts the same
+`workspace/`, so its model comes only from `OPENCODE_MODEL`.
 
 Paths inside an environment file are relative to that file. The files under
 `envs/` therefore point at `../workspace`, `../dsh`, and the shared kit
 directories with `../`.
+
+## Local model environment
+
+`envs/opencode-local.yaml` uses the same OpenCode workload, workspace, MCP
+server, and egress rule as the default environment. Only the model alias
+differs. Start Ollama and LiteLLM on the host first, then:
+
+```bash
+sbx env plan ./envs/opencode-local.yaml
+sbx env run ./envs/opencode-local.yaml
+```
+
+Verify the host path before starting the sandbox:
+
+```bash
+curl -s http://127.0.0.1:11434/api/tags
+curl -s http://127.0.0.1:4000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"local-llm","messages":[{"role":"user","content":"Say OK"}]}'
+```
+
+The first request loads the tag into Ollama and can take several seconds. The
+sandbox still reaches only LiteLLM; `127.0.0.1:11434` is not exposed. To swap
+the local base, run `scripts/setup-ollama-model.sh <base>` again; LiteLLM and
+the sandbox keep the `local-llm` alias. To switch to a paid model, set
+`OPENCODE_MODEL=litellm/deepseek-flash` in the env file and recreate the
+sandbox, or use `/models` in OpenCode.
+
+Small models are weak at tool calls and long instructions. Use this
+environment to validate the plumbing, then point `local-llm` at a larger base
+before relying on it.
 
 ## Plain DeepSeek sandbox
 
@@ -534,17 +607,30 @@ analysis, and unit tests.
 
 ## Models
 
-Only hosted DeepSeek is enabled. LiteLLM exposes the two user-facing DSH
-models: `deepseek-flash` (V4.1 Flash) and `deepseek-v4-pro` (V4 Pro).
+LiteLLM exposes three aliases:
 
-The local Qwen scripts, digest map, and Modelfile remain in the repository for
-reference, but nothing references them: `qwen-coder` is not in LiteLLM's model
-list and not in OpenCode's provider models.
+- `deepseek-flash` (V4.1 Flash) and `deepseek-v4-pro` (V4 Pro) from hosted
+  DeepSeek;
+- `local-llm`, which maps to `ollama_chat/local-llm` on the host at
+  `127.0.0.1:11434`.
+
+The local alias is a stable Ollama tag. `scripts/setup-ollama-model.sh [base]`
+creates it from `qwen3:0.6b` by default; pass another Ollama tag to swap the
+base without changing LiteLLM, OpenCode, or the sandbox. If the new base has a
+different context window, update the `local-llm` limit in
+`workspace/opencode.json` and `OLLAMA_NUM_CTX`.
+
+`workspace/opencode.json` selects the alias through `OPENCODE_MODEL`;
+`envs/opencode.yaml` uses the hosted alias and `envs/opencode-local.yaml` uses
+the local one.
 
 To add another hosted provider through LiteLLM: add the deployment and key in
 `litellm/config.yaml`, add the alias under `provider.litellm.models`, restart
 LiteLLM, and select it with `/models`. The sandbox still only reaches LiteLLM;
 no new egress rule is required.
+
+To add another local model, add a LiteLLM alias and an OpenCode model entry, or
+point `local-llm` at the new base with the setup script.
 
 ## Validation
 
@@ -553,10 +639,11 @@ Run these after setup and after every pin change.
 ```bash
 # 1. The pinned kit resolves.
 sbx kit inspect \
-  docker.io/docker/sbx-kit-opencode@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
+  docker.io/docker/sbx-kit-opencode@sha256:f5dcf771efda91c2fe37a5280b93124e03d69a66f14242fb15ed4036e668be3b
 
-# 2. The environment resolves with the LiteLLM kit and both env vars.
+# 2. Both environments resolve with the LiteLLM kit and env vars.
 sbx env plan ./envs/opencode.yaml
+sbx env plan ./envs/opencode-local.yaml
 
 # 3. The LiteLLM lock is unchanged and installs frozen.
 cd litellm
@@ -572,7 +659,10 @@ scripts/audit.sh
 curl -s http://127.0.0.1:4000/v1/models
 curl -s http://127.0.0.1:4000/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"model":"deepseek","messages":[{"role":"user","content":"Say OK"}]}'
+  -d '{"model":"deepseek-flash","messages":[{"role":"user","content":"Say OK"}]}'
+curl -s http://127.0.0.1:4000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"local-llm","messages":[{"role":"user","content":"Say OK"}]}'
 ```
 
 Then verify from inside the sandbox:
@@ -582,17 +672,20 @@ sbx exec -it opencode-with-mcps bash
 curl -s http://host.docker.internal:4000/v1/models
 ```
 
+For the local environment, use `opencode-local-sandbox` instead.
+
 Expected:
 
 - `sbx kit inspect` prints the OpenCode kit at the pinned digest.
-- `sbx env plan` lists the `codebase-memory-mcp` and `litellm` kits, plus
-  `LITELLM_BASE_URL`.
+- Both `sbx env plan` runs list the `codebase-memory-mcp` and `litellm` kits,
+  plus `LITELLM_BASE_URL` and `OPENCODE_MODEL`.
 - `scripts/audit.sh` passes for the LiteLLM lockfile, MCP Dockerfile, and MCP
   base image. It fails on the pinned OpenCode workload image; see Known issue.
-- LiteLLM returns `deepseek-flash` and `deepseek-v4-pro`.
+- LiteLLM returns `local-llm`, `deepseek-flash`, and `deepseek-v4-pro`.
 - The sandbox sees LiteLLM at `localhost:4000`.
-- In OpenCode, `/models` shows `LiteLLM` / `deepseek-flash` and `/mcp`
-  shows `codebase-memory-mcp`.
+- In OpenCode, `/models` shows `LiteLLM` / `deepseek-flash` for the default
+  environment and `LiteLLM` / `local-llm` for the local one; `/mcp` shows
+  `codebase-memory-mcp`.
 
 Confirm that Ollama is **not** reachable from the sandbox:
 
@@ -606,10 +699,10 @@ The last command must print `blocked as expected`.
 
 ## Known issue: OpenCode workload image
 
-The latest published OpenCode kit (`1.18.33`) is built on Debian 13.7 and has
-54 HIGH, fixable CVEs in its OS packages (bind9, curl, libexpat,
-linux-libc-dev). The kit is upstream-owned and immutable; no newer kit is
-published, so this repository cannot patch it by changing a pin.
+The pinned OpenCode kit (`1.19.5`) is built on Debian 13.7 and has
+53 HIGH and 1 CRITICAL fixable OS-package CVEs (linux-libc-dev, apt,
+libapt-pkg7.0). The kit is upstream-owned and immutable, so this repository
+cannot patch it by changing a pin.
 
 `scripts/audit.sh` intentionally fails on this image. The sandbox's egress is
 limited to LiteLLM and the MCP/model processes run inside the sandbox, but the
@@ -617,8 +710,8 @@ package-level risk remains.
 
 Options:
 
-- Accept the documented upstream risk until Docker republishes the kit, then
-  bump the digest and re-run the audit.
+- Accept the documented upstream risk until Docker republishes a patched kit,
+  then bump the digest and re-run the audit.
 - Build and publish a custom OpenCode workload from a patched base image, pin
   its digest in `envs/opencode.yaml`, and replace the upstream kit.
 
@@ -670,7 +763,10 @@ pre-commit run --hook-stage manual trivy-audit
 
 - The sandbox has one model egress rule: `localhost:4000` (LiteLLM).
 - Provider keys stay in LiteLLM's host environment; the sandbox never sees them.
-- Ollama binds `127.0.0.1` and is not reachable from the sandbox.
+- Ollama binds `127.0.0.1` and is not reachable from the sandbox. LiteLLM is
+  the only process that reaches the local model API.
+- Local-model prompts stay on the host and never leave it unless you point an
+  alias at a hosted provider.
 - One HIGH advisory is documented rather than fixed: filelock
   CVE-2026-112940. LiteLLM 1.106.3 requires `filelock<4.0`, so the fixed
   4.2.1 cannot be installed. See [SECURITY.md](SECURITY.md) and

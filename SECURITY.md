@@ -7,8 +7,7 @@ vulnerabilities. `scripts/audit.sh` is the gate that checks that.
 ## Pins
 
 - OpenCode workload:
-  `docker.io/docker/sbx-kit-opencode:1.18.33@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d`
-  (1.18.33 is the latest published kit; 1.19.4 does not exist)
+  `docker.io/docker/sbx-kit-opencode:1.19.5@sha256:f5dcf771efda91c2fe37a5280b93124e03d69a66f14242fb15ed4036e668be3b`
 - codebase-memory-mcp: 0.12.1, with release archive hashes hardcoded in
   `mcps/codebase-memory-mcp/kit.Dockerfile`
   - linux-amd64:
@@ -22,7 +21,7 @@ vulnerabilities. `scripts/audit.sh` is the gate that checks that.
 - Python: 3.12.15, pinned in `litellm/.python-version`
 - uv: 0.13.5, installed by `scripts/install-uv.sh` after SHA-256
   verification and invoked via `scripts/uv`
-- Ollama: 0.40.10 (optional local fallback)
+- Ollama: 0.40.10 (host-local model backend)
   - `Ollama-darwin.zip`:
     `0c8ac7dc394a7b6171d8531bdaba60dd8dd2d8ed525ebc6c4526a91497a029ee`
   - `ollama-darwin.tgz`:
@@ -31,8 +30,9 @@ vulnerabilities. `scripts/audit.sh` is the gate that checks that.
     `1e8ad2d2a394efdd235bee74deec237badd95142ffba77588140ab2a9ecec227`
   - `ollama-linux-arm64.tar.zst`:
     `57dca26f51efc050112b733a65dea6f6c8e68da7a2946afd7c1eb8834d9eeb92`
-- qwen2.5-coder base models: digests pinned in `models/ollama-model-digests.txt`
-  (0.5b test, 1.5b, 3b, 7b)
+- Local Ollama bases: `qwen3:0.6b` (default) and `qwen3:8b`, built into the
+  stable `local-llm` tag by `scripts/setup-ollama-model.sh`. Registry manifest
+  digests are pinned in `models/ollama-model-digests.txt`.
 - DSH SDK: 0.2.1rc2, locked in `dsh/uv.lock`; the lock also pins
   `deepseek-harness-runtime-bin==0.2.1rc2` and its per-platform hashes
 - DSH uv builder:
@@ -88,9 +88,9 @@ scoped path, a statement, and an expiry date.
 
 - LiteLLM 1.106.3: OSV/PyPI query returns 0 advisories (released 2026-10-24).
   Its lock still contains filelock 3.32.7 (CVE-2026-112940); see below.
-- OpenCode 1.18.33: OSV queries for the npm and Go packages return 0, but the
-  image's Debian 13.7 base has 54 HIGH OS-package CVEs with fixes available
-  (bind9, curl, libexpat, linux-libc-dev). No newer kit is published, so the
+- OpenCode 1.19.5: OSV queries for the npm and Go packages return 0, but the
+  image's Debian 13.7 base has 53 HIGH and 1 CRITICAL fixable OS-package CVEs
+  (linux-libc-dev, apt, libapt-pkg7.0). The upstream kit is immutable, so the
   pinned workload cannot be patched from this repository. The audit gate fails
   on it intentionally; see the README Known issue.
 - codebase-memory-mcp 0.12.1: OSV Go query returns 0.
@@ -135,11 +135,19 @@ that finding is recorded above and in the README Known issue.
 - **Ollama binds 127.0.0.1 and is not reachable from the sandbox.** The only
   sandbox egress entry is `localhost:4000` (LiteLLM). Ollama's model-management
   API is therefore host-local, not sandbox-visible.
+- **Local-model prompts stay on the host.** `local-llm` routes to Ollama at
+  `127.0.0.1:11434`; prompts leave the host only if an alias points at a hosted
+  provider. The sandbox never receives the provider key either way.
+- **qwen3 base digests are pinned in the repository.** The host Ollama store
+  is outside this repository, but `models/ollama-model-digests.txt` records the
+  `qwen3:0.6b` and `qwen3:8b` registry manifest digests. The stable
+  `local-llm` tag is derived from the selected base.
 - **Model verification is post-pull.** `scripts/verify-ollama-model.sh <base>`
   reads the registry manifest digest recorded in the local manifest (Ollama
   appends it as a layer) and compares it with
   `models/ollama-model-digests.txt`; a tag without a pin is skipped with a
-  warning, so experimental sizes remain usable.
+  warning, so experimental sizes remain usable. The warning also prints the
+  observed digest so it can be pinned.
   If Ollama re-tags a pinned model, the script fails closed.
 - **The host OS, Docker, `sbx`, and Trivy are outside the lock.** Keep them
   patched and record the tested `sbx` version.
@@ -150,7 +158,7 @@ that finding is recorded above and in the README Known issue.
 ## Updating
 
 1. Pick a new version and obtain its digest or release hash.
-2. Update `envs/opencode.yaml`, `kit.Dockerfile`, `litellm/pyproject.toml`, or
+2. Update `envs/opencode*.yaml`, `kit.Dockerfile`, `litellm/pyproject.toml`, or
    the Ollama/model pins as applicable.
 3. Regenerate and install the lock:
 

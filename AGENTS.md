@@ -20,15 +20,17 @@ project rules, put them in the mounted workspace or in an MCP `context.md`.
 OpenCode (sandbox)
   └─ http://host.docker.internal:4000/v1     (only egress: localhost:4000)
        └─ LiteLLM 1.106.3   (host uv project, 127.0.0.1:4000)
+            ├─ Ollama 0.40.10 (host, 127.0.0.1:11434; stable local-llm tag)
             └─ DeepSeek API (host egress; key in litellm/.env)
 ```
 
 - `envs/` holds one environment file per workload. `envs/opencode.yaml`
-  selects the workload kit, the MCP kit, and the LiteLLM egress kit.
+  selects the workload kit, the MCP kit, and the LiteLLM egress kit;
+  `envs/opencode-local.yaml` reuses them and selects `litellm/local-llm`.
 - `envs/local/` holds gitignored workspace overrides. Copy the matching
   `*.local.example.yaml` to `*.local.yaml` and edit `workspace`.
-- `workspace/opencode.json` defines the LiteLLM provider and registers MCP
-  servers with OpenCode.
+- `workspace/opencode.json` defines the LiteLLM provider, selects the model
+  through `OPENCODE_MODEL`, and registers MCP servers with OpenCode.
 - `mcps/<name>/` contains self-contained v3 mixins that install MCP binaries
   into the sandbox image.
 - `providers/litellm/kit.yaml` is the only model egress rule.
@@ -42,7 +44,8 @@ OpenCode (sandbox)
   gitignored `envs/local/deepseek.local.yaml` to mount a specific folder.
 - `litellm/` is a uv project: `pyproject.toml`, `uv.lock`, `config.yaml`,
   `run.sh`.
-- `models/` holds inactive local Qwen assets.
+- `models/` holds local Ollama assets: the default qwen3 overlay and the
+  base-model digest map.
 - `scripts/` holds the audit gate, model digest check, and ACP prompt normalizer.
 
 ## Non-negotiables
@@ -76,7 +79,7 @@ OpenCode (sandbox)
 - `required-version` in `litellm/pyproject.toml` also enforces it.
 - Python **3.12.15** (`litellm/.python-version`).
 - `sbx` 0.48.0 tested.
-- Ollama **0.40.10** (inactive local assets).
+- Ollama **0.40.10** (host-local model backend for `envs/opencode-local.yaml`).
 - Flutter **3.47.6** on the host for Flutter commands.
 - Dart **3.13.5** and `dart_mcp_server` **1.2.1** in the Flutter sandbox.
 - OpenSpec **1.15.0** (`@fission-ai/openspec`), Node >=20.19.
@@ -89,11 +92,13 @@ uses the checksum-verified binary in `.tools/`.
 ## Environment
 
 Required LiteLLM variables live in `litellm/run.sh`; sandbox variables live in
-`envs/opencode.yaml`. The LiteLLM egress host:port is literal in
-`providers/litellm/kit.yaml` because sbx resolves it before the environment
-file's `env:` block is visible to `kit.env`. Optional host secrets go in
-`litellm/.env` (gitignored, loaded by `run.sh`); never commit it or mount it
-into the sandbox.
+`envs/opencode.yaml` and `envs/opencode-local.yaml`. `OPENCODE_MODEL` selects
+the LiteLLM alias in `workspace/opencode.json`. The local alias reaches Ollama
+only through LiteLLM on `127.0.0.1:11434`; the sandbox never gets that address.
+The LiteLLM egress host:port is literal in `providers/litellm/kit.yaml` because
+sbx resolves it before the environment file's `env:` block is visible to
+`kit.env`. Optional host secrets go in `litellm/.env` (gitignored, loaded by
+`run.sh`); never commit it or mount it into the sandbox.
 
 ## Common tasks
 
@@ -101,8 +106,8 @@ into the sandbox.
 
 Follow [mcps/README.md](mcps/README.md). In short: new `mcps/<name>/` with
 `kit.yaml`, `kit.Dockerfile`, `context.md`, `README.md`; pin the base digest and
-archive hashes; add the kit to `envs/opencode.yaml`; register the binary in
-`workspace/opencode.json`.
+archive hashes; add the kit to `envs/opencode.yaml` and
+`envs/opencode-local.yaml`; register the binary in `workspace/opencode.json`.
 
 ### DSH workload
 
@@ -156,9 +161,15 @@ The default is hosted DeepSeek through LiteLLM. Set `DEEPSEEK_API_KEY` in
 `litellm/.env`; OpenCode selects `litellm/deepseek-flash`, and DSH advertises
 `deepseek-flash` (V4.1 Flash) and `deepseek-v4-pro` (V4 Pro).
 
-Only hosted DeepSeek is active (`deepseek-flash` and `deepseek-v4-pro`).
-The local Qwen scripts and assets remain in the repository but are not
-referenced by LiteLLM, OpenCode, or DSH.
+`envs/opencode-local.yaml` selects `litellm/local-llm`, which maps to
+`ollama_chat/local-llm` on the host at `127.0.0.1:11434`. The stable Ollama tag
+is created by `scripts/setup-ollama-model.sh` (default `qwen3:0.6b`); pass
+another base tag to swap sizes. Switching the sandbox between hosted and local
+is one `OPENCODE_MODEL` value in the env file, or `/models` at runtime.
+
+New providers go in `litellm/config.yaml`; keys stay on the host. A new local
+model gets a LiteLLM alias plus an OpenCode model entry, or replaces the base
+behind the existing `local-llm` tag.
 
 ### Update a pin
 
@@ -195,14 +206,15 @@ sbx env plan ./envs/java.yaml
 
 # Sandbox configuration resolves.
 sbx kit inspect \
-  docker.io/docker/sbx-kit-opencode@sha256:11d794b51c3f36be5b1f0b4fe59512970eacf1bff35eec50bf223c0825b0a25d
+  docker.io/docker/sbx-kit-opencode@sha256:f5dcf771efda91c2fe37a5280b93124e03d69a66f14242fb15ed4036e668be3b
 sbx env plan ./envs/opencode.yaml
+sbx env plan ./envs/opencode-local.yaml
+
+# Local model integrity, after pulling the base.
+scripts/verify-ollama-model.sh qwen3:0.6b
 
 # Audit. It intentionally fails on the upstream OpenCode image; see below.
 scripts/audit.sh
-
-# Optional local assets only; not part of the active setup.
-# scripts/verify-ollama-model.sh qwen2.5-coder:7b
 
 # Fast lint suite (default pre-commit stage).
 pre-commit run --all-files
@@ -228,15 +240,16 @@ docker buildx build --platform linux/amd64 \
 
 ## Known issues
 
-- **Upstream OpenCode image has 54 HIGH CVEs with fixes available** in its
-  Debian 13.7 base. `1.18.33` is the latest published kit; no newer kit exists,
-  so it cannot be patched here. `scripts/audit.sh` fails on it by design. Do not
-  suppress this finding; see the README "Known issue" section.
+- **Upstream OpenCode image has 53 HIGH and 1 CRITICAL CVE with fixes
+  available** in its Debian 13.7 base. `1.19.5` is the pinned kit; it cannot be
+  patched here. `scripts/audit.sh` fails on it by design. Do not suppress this
+  finding; see the README "Known issue" section.
 - **filelock CVE-2026-112940** is a scoped, expiring exception in
   `.trivyignore.yaml`. LiteLLM 1.106.3 requires `filelock<4.0`, so 4.2.1 cannot
   be installed. Re-check when LiteLLM relaxes the constraint.
-- **`docker.io/docker/sbx-kit-opencode:1.19.4` does not exist.** The pin is
-  `1.18.33`.
+- **Qwen3 0.6B is a plumbing test, not a coding model.** `local-llm` defaults
+  to it to validate the Ollama -> LiteLLM -> OpenCode path. It is weak at tool
+  calls and long instructions; point the tag at a larger base for real work.
 - **Flutter runs on the host by design.** Flutter's Linux SDK is x86_64-only,
   so Flutter commands, widget analysis, and iOS/Android SDKs remain on the
   host. Dart MCP runs in the sandbox.
